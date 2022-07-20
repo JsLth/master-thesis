@@ -37,6 +37,9 @@ vignettes/*.pdf
 
 # R Environment Variables
 .Renviron
+<<<<<<< HEAD
 
 # data
 data/
+=======
+>>>>>>> b33b4128ee41a4167075f19a4af61ab119e9c73e
