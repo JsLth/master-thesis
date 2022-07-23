@@ -3,22 +3,7 @@
 ### (https://doi.org/10.7910/DVN/5QCCUU), but the Tweet limit of the elevated
 ### access does not suffice to handle 40 million tweets.
 
-Sys.setenv("RETICULATE_PYTHON" = "C:/Users/Nonas/anaconda3/envs/twitter_env/python.exe")
-
-## Read and filter Climate Change Twitter Dataset ----
-cctd <- vroom(
-  "data/The Climate Change Twitter Dataset.csv",
-  col_select = c("created_at", "id", "lng", "lat", "topic", "stance")
-)
-
-# Filter out non-geotagged tweets and tweets outside of Germany
-cctd <- cctd %>%
-  filter(!is.na(cctd$lat)) %>%
-  st_as_sf(coords = c("lng", "lat"), crs = 4326) %>%
-  filter(as.logical(st_contains(germany, ., sparse = FALSE)))
-
-# Save dataset as feather
-st_write_feather(cctd, "data/cctd.feather")
+source("~/Masterarbeit/R/packages.R")
 
 
 ## Hydrate tweets ----
@@ -45,7 +30,7 @@ v2_lookup_tweets <- function(
   poll.fields = NULL,
   user.fields = NULL
 ) {
-  bearer <- Sys.getenv("TWIT_BEARER")
+  bearer_token <- Sys.getenv("TWIT_BEARER")
   
   params <- list(
     ids = ids,
@@ -69,15 +54,37 @@ v2_lookup_tweets <- function(
 }
 
 
+## Read in CCTD dataset ----
+read_german_cctd <- function() {
+  cctd <- read_csv(
+    "data/The Climate Change Twitter Dataset.csv",
+    col_select = c("created_at", "id", "lng", "lat", "topic", "stance")
+  )
+  
+  # Filter out non-geotagged tweets and tweets outside of Germany
+  cctd %>%
+    filter(!is.na(cctd$lat)) %>%
+    st_as_sf(coords = c("lng", "lat"), crs = 4326) %>%
+    filter(as.logical(st_contains(germany, ., sparse = FALSE)))
+}
+
+
+## Format hydration results ----
 format_lookup <- function(tweets) {
   tweets <- tweets %>%
     cli_progress_along() %>%
     map_dfr(function(i) {
       tweets[[i]]$data %>%
         map_dfr(as.data.frame) %>%
-        select(text, id, author_id) %>%
-        as_tibble()
+        select(text, id, lang, author_id) %>%
+        mutate(id = as.numeric(id))
     })
+  
+  tweets %>%
+    filter(lang %in% "de") %>%
+    left_join(read_german_cctd(), by = "id") %>%
+    st_as_sf() %>%
+    lazy_dt()
 }
 
 
@@ -99,7 +106,4 @@ hydrated_tweets <- v2_lookup_tweets(
   user.fields = c("location", "created_at", "description"),
   tweet.fields = c("author_id", "created_at", "geo", "lang", "source")
 )
-
-# Save output
-saveRDS(cctd_hydrated, "data/cctd_hydrated.rds")
 

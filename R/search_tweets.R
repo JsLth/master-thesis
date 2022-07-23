@@ -7,6 +7,10 @@ source("~/Masterarbeit/R/packages.R")
 #' be gathered.
 #' @param ... Further arguments passed to `v2_search_tweets`.
 collect_tweets <- function(query, day, ...) {
+  if (is.na(day)) {
+    cli_abort("All tweets from available days have been collected.")
+  }
+  
   # Get 00:00:00 of input day
   start <- as_datetime(day) %>%
     floor_date(unit = "days")

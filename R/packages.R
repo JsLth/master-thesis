@@ -1,5 +1,6 @@
 # General
 library(tidyverse)
+library(magrittr)
 library(data.table)
 library(dtplyr)
 library(reticulate)
@@ -10,7 +11,7 @@ library(lubridate)
 library(httr2)
 library(jsonlite)
 library(ows4R)
-library(vroom)
+library(readr)
 library(arrow)
 library(sfarrow)
 
