@@ -39,6 +39,10 @@ pelias_geocode <- function(
   args <- as.list(environment())
   large_admin <- c("macrocounty", "region", "macroregion", "country", "coarse", "postalcode")
   
+  is_degree <- grepl("(?=.*°)(?=.*')", text, perl = TRUE)
+  parsed_lonlat <- degree_to_decimal(text[is_degree])
+  text[is_degree] <- ""
+  
   # Some pre-filtering
   # - Emojis are removed because Pelias does not recognize them
   # - Only numbers are removed because they cannot be places
@@ -62,8 +66,7 @@ pelias_geocode <- function(
     if (nchar(text[i])) {
       args$text <- text[i]
       args$id <- NULL
-      res <- try(do.call(pelias_search, args))
-      if (inherits(res, "try-error")) browser()
+      res <- do.call(pelias_search, args)
       feat <- res$features
     } else feat <- list()
     
@@ -137,4 +140,42 @@ pelias_ready <- function() {
     httr2::req_perform() %>%
     httr2::resp_body_string() %>%
     identical("status: ok")
+}
+
+
+#' Converts arcdegrees to decimal coordinates
+#' Takes in a character vector, matches all numbers and potential cardinal
+#' directions (N, E) and then converts the resulting numerics to decimal
+#' coordinates.
+#' Oriented by https://gist.github.com/valentinitnelav/ea94fea68227e05c453e13c4f7b7716b,
+#' but completely rewritten
+#' 
+#' Example: 
+#' 
+#' Input  : "51° 2' N , 6° 59' O"
+#' Output : x         y
+#'      1   51.03333  6.983333
+degree_to_decimal <- function(coords) {
+  str_match_all(coords, "[[:digit:]NOELBr]+") %>%
+    map_dfr(function(chr) {
+      chr <- c(chr)
+      if (!length(chr) %% 2) {
+        dms <- list(chr[1:(length(chr)/2)], chr[(length(chr) / 2 + 1):length(chr)])
+        lon_regex <- paste(c("N", "Br"), collapse = "|")
+        lat_regex <- paste(c("E", "O", "L"), collapse = "|")
+
+        vapply(c(lon_regex, lat_regex), function(regex) {
+          dms %>%
+            extract(map_lgl(dms, ~any(str_detect(., regex)))) %>%
+            extract2(1) %>%
+            str_replace(paste(regex, collapse = "|"), "") %>%
+            extract(nchar(.) > 0) %>%
+            as.numeric() %>%
+            { .[1] + .[2] / 60 + ifelse(length(.) > 2, .[3] / 3600, 0) }
+        }, numeric(1), USE.NAMES = FALSE) %>%
+          as.list() %>%
+          set_names(c("x", "y")) %>%
+          do.call(data.frame, .)
+      } else data.frame(x = NA_real_, y = NA_real_)
+    })
 }
