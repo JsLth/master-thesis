@@ -21,3 +21,13 @@ keywords <- c(
   "#gruenen", "#gruenermist", "#klimakriseistjetzt", "#letztegeneration",
   "#fridaysforfuture"
 )
+
+
+seed <- list(
+  supporting = c(
+    "klimakatastrophe", "klimakris", "einspar", "umweltschutz", "wohlstand", "wissenschaft", "klimakriseistjetzt", "letztegeneration", "verantwort", "artenkollaps", "govegan", "klimaziel", "klimaschutz"
+  ),
+  opposing = c(
+    "klimahysteri", "grunermist", "freiheit", "schuld", "wirtschaft", "habeckruecktritt", "landwirtschaft", "panik", "panikmache", "schamlos", "bundesregierungruecktritt", "irrsinn", "eigenverantwort"
+  )
+)
