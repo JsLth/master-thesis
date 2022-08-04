@@ -24,6 +24,7 @@ library(quanteda)
 library(quanteda.textstats)
 library(quanteda.textplots)
 library(quanteda.textmodels)
+library(LSX)
 
 # Geoprocessing
 library(sf)

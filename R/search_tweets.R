@@ -22,9 +22,11 @@ collect_tweets <- function(query, day, ...) {
   start_num <- as.numeric(start)
   end_num <- as.numeric(end) -  start_num
   
-  # Format dates for API queries
-  start <- format(start, format = "%Y-%m-%dT%H:%M:%SZ")
-  end <- format(end, format = "%Y-%m-%dT%H:%M:%SZ")
+  # Format dates for all uses
+  start_iso <- format(start, format = "%Y-%m-%dT%H:%M:%SZ")
+  end_iso <- format(end, format = "%Y-%m-%dT%H:%M:%SZ")
+  ymd <- format(start, format = "%Y-%m-%d")
+  ymd_short <- format(start, format = "%y%m%d")
 
   # Prepare iterators and output list
   newest_id <- NULL
@@ -32,6 +34,8 @@ collect_tweets <- function(query, day, ...) {
   time_set <- 0
   i <- j <- 1
 
+  cli::cli_alert_info("Collecting tweets for {ymd}.")
+  
   # Initialize progress bar
   cli_progress_bar(
     status = "Searching tweets",
@@ -46,8 +50,8 @@ collect_tweets <- function(query, day, ...) {
     # Query Twitter API
     res <- v2_search_tweets(
       query = query,
-      end_time = end,
-      start_time = start,
+      end_time = end_iso,
+      start_time = start_iso,
       ...
     )
     
@@ -65,8 +69,6 @@ collect_tweets <- function(query, day, ...) {
       
       # If HTTP error "Too Many Request", just wait for 15 minutes and try again
       if (res$status_code == 429L) {
-        saveRDS(contents, paste0(format(as_datetime(start), "data/tweets/%y%m%d"), "_", j, ".rds"))
-        j <- j + 1
         cli_progress_update(status = "Waiting out rate limit")
         Sys.sleep(900)
         next
@@ -75,9 +77,8 @@ collect_tweets <- function(query, day, ...) {
       # If no results are output or if an HTTP error is returned that repeats
       # the same datetime twice, complete the function call
       if ((!is.null(message) && (!is.na(err_time) && str_count(message, err_time) == 2)) || no_result) {
-        saveRDS(contents, paste0(format(as_datetime(start), "data/tweets/%y%m%d"), "_", j, ".rds"))
-        j <- j + 1
-        cli_alert_success("All tweets for {format(as_datetime(start), '%Y-%m-%d')} were collected.")
+        saveRDS(contents, sprintf("data/tweets/%s.rds", ymd_short))
+        cli_alert_success("All tweets for {ymd} were collected.")
         return(contents)
       }
       
@@ -101,18 +102,17 @@ collect_tweets <- function(query, day, ...) {
       min() %>%
       as_datetime() %>%
       as.numeric() %>%
-      `-`(start_num) %>%
-      `-`(end_num, .)
+      subtract(start_num) %>%
+      subtract(end_num, .)
     
     # Update end_time with each iteration where end_time is equal to the lowest
     # time value included in the output of the current iteration
-    end <- contents[[i]]$data$created_at %>%
+    end_iso <- contents[[i]]$data$created_at %>%
       min() %>%
       as_datetime() %>%
       format("%Y-%m-%dT%H:%M:%SZ")
 
-    pb <- try(cli_progress_update(set = time_set, status = "Searching tweets"))
-    if (inherits(pb, "try-error")) cli::cli_inform("There is an issue with the progress bar... again :)")
+    pb <- cli_progress_update(set = time_set, status = "Searching tweets")
     i <- i + 1
   }
 }
@@ -173,7 +173,7 @@ v2_search_tweets <- function(
 check_date <- function(date) {
   date <- as_datetime(date) %>%
     floor_date(unit = "days") %>%
-    `+`(dseconds(1)) %>%
+    add(dseconds(1)) %>%
     interval(end = ceiling_date(., unit = "days"))
   
   tweets <- dir("data/tweets") %>%
