@@ -1,21 +1,32 @@
-### This script collects boundary data of Germany's administrative regions by
-### connecting to the 1:250,000 administrative boundary WFS of the 
-### Bundesamt für Kartographie und Geodäsie.
-
 source("~/Masterarbeit/R/packages.R")
 
-# Connect to WFS
-wfs <- WFSClient$new("https://sgx.geodatenzentrum.de/wfs_vg250", serviceVersion = "2.0.0")
-
-# List feature types
-wfs$capabilities$getFeatureTypes(pretty = TRUE)
-
-# Extract German state borders
-germany <- wfs$getFeatures("vg250:vg250_sta") %>%
-  st_cast("GEOMETRYCOLLECTION") %>%
-  st_collection_extract("POLYGON") %>%
-  st_combine() %>%
-  st_transform(4326) %>%
-  st_make_valid()
-
-saveRDS(germany, "data/germany.rds")
+#' Get administrative boundaries of Germany
+#' 
+#' @description Connects to the "Verwaltungsgrenzen 1:250.000" WFS of the BKG
+#' and retrieves geodata from it.
+#' 
+#' @param what Which administrative level to extract. Possible values are
+#' `Staat`, `Bundesland`, `Regierungsbezirk`, `Verwaltungsgebiete`, `Grenzlinien`,
+#' `Kreis`, `Gemeinden`, and `Gemeindepunkte`
+get_admin <- function(what) {
+  wfs <- WFSClient$new("https://sgx.geodatenzentrum.de/wfs_vg250", serviceVersion = "2.0.0")
+  
+  types <- wfs$capabilities$getFeatureTypes(pretty = TRUE)
+  what <- types[types$title == what, "name"]
+  
+  # Geometries come as "MULTISURFACE" which is not fully supported by sf
+  admin <- wfs$getFeatures(what) %>%
+    st_cast("GEOMETRYCOLLECTION") %>%
+    st_collection_extract("POLYGON") %>%
+    set_rownames(NULL)
+  
+  # Country boundaries are not valid off-the-shelf and are divided in the
+  # Northern part. 
+  if (what == "Staat") {
+    admin <- admin %>%
+      st_make_valid() %>%
+      st_combine()
+  }
+  
+  admin
+}
