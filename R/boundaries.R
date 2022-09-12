@@ -12,20 +12,25 @@ get_admin <- function(what) {
   wfs <- WFSClient$new("https://sgx.geodatenzentrum.de/wfs_vg250", serviceVersion = "2.0.0")
   
   types <- wfs$capabilities$getFeatureTypes(pretty = TRUE)
-  what <- types[types$title == what, "name"]
+  type <- types[types$title == what, "name"]
   
   # Geometries come as "MULTISURFACE" which is not fully supported by sf
-  admin <- wfs$getFeatures(what) %>%
+  admin <- wfs$getFeatures(type) %>%
     st_cast("GEOMETRYCOLLECTION") %>%
     st_collection_extract("POLYGON") %>%
     set_rownames(NULL)
   
-  # Country boundaries are not valid off-the-shelf and are divided in the
-  # Northern part. 
   if (what == "Staat") {
+    # Country boundaries are not valid off-the-shelf and are divided in the
+    # Northern part. 
     admin <- admin %>%
       st_make_valid() %>%
       st_combine()
+  } else if (what == "Kreis") {
+    # Kreise are returned as multiple polygons. Union these to a single one.b
+    admin <- admin %>%
+      group_by(ags) %>%
+      summarise(gen = unique(gen))
   }
   
   admin

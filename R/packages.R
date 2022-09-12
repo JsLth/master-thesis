@@ -12,11 +12,14 @@ library(httr2)
 library(jsonlite)
 library(ows4R)
 library(readr)
-library(arrow)
-library(sfarrow)
 
 # Data cleaning
+library(emoji)
 
+# Debugging and convenience
+library(cli)
+library(callr)
+library(bench)
 
 # Text semantics
 library(stringr)

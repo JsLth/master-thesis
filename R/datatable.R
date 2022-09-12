@@ -21,7 +21,7 @@ twitter_to_dt <- function(res, filter = TRUE) {
 
   if (filter) {
     #cli::cli_alert_info("Filtering data...")
-    has_geo <- !is.na(out$location) | !is.na(out$geo.place_id))
+    has_geo <- !is.na(out$location) | !is.na(out$geo.place_id)
     is_not_automated <- out$source %in% allowed_sources
     is_german <- out$country_code == "DE" | is.na(out$country_code)
     out %>%
