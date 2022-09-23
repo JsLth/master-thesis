@@ -7,7 +7,7 @@ Data files were either removed due to copyright restrictions or dehydrated to on
 
 # Structure
 
-The code files are divided into workflow files and supporting functional files. Workflow files evaluate code while functional files provide the functions for workflow files.
+The code files are divided into workflow files and supporting functional files. Workflow files execute computations while functional files provide the functions for workflow files.
 
 ### Workflow files
 - **main.R**: Computes the thesis results based on the tweet packages created from the code files below
