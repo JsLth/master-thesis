@@ -7,14 +7,21 @@ Data files were either removed due to copyright restrictions or dehydrated to on
 
 # Structure
 
-The code files are structured as follows:
+The code files are divided into workflow files and supporting functional files. Workflow files evaluate code while functional files provide the functions for workflow files.
 
-- **workflow.R**: Evaluated code that is used for computing the results of the thesis. Sources all code files below.
-- **collect_tweets.R**: Evaluated code to extract tweets on a daily basis.
-- **boundaries.R**: Collects geodata describing the boundaries of Germany's administrative levels
-- **datatable.R**: Converts collected tweets to the efficient data.table format and filters out unwanted tweets
-- **dictionaries.R**: Contains dictionaries that can be used to, e.g., filter out words from a corpus (sourced in many other files)
-- **hydrate.R**: Hydrates tweet IDs with all relevant information on a tweet
+### Workflow files
+- **main.R**: Computes the thesis results based on the tweet packages created from the code files below
+- **collect_tweets.R**: Collects tweets for the earliest possible day and saves them to ./data/tweets
+- **geocode.R**: Geocodes the earliest non-geocoded tweet package present in ./data/tweets and saves them to ./data/geo
+
+### Functional files
+- **boundaries.R**: Functions to collect data on administrative boundaries
+- **read_destatis.R**: Functions to read data from destatis
+- **datatable.R**: Functions to read (and filter) tweet packages as lazy datatables
+- **dictionaries.R**: Contains dictionaries and other lists (sourced in many other files)
 - **packages.R**: Loads all the packages needed for any of the code files (sourced in each file)
-- **search_tweets.R**: Searches Twitter for all tweets on a particular day
-- **tf_idf.R**: Calculates tf-idf scores for a vector of tweets
+- **hydrate.R**: Functions to get tweets from IDs
+- **search_tweets.R**: Functions to query the Twitter API
+- **tf_idf.R**: Function to calculate tf-idf values for a character vector
+- **photon.R**: Functions to control and query photon and filter the results
+- **utils.R**: Various utility functions
