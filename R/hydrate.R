@@ -1,7 +1,6 @@
-### This file reads in the Climate Change Twitter Dataset, filters it
-### and hydrates it using twarc. Another dataset could have been used 
-### (https://doi.org/10.7910/DVN/5QCCUU), but the Tweet limit of the elevated
-### access does not suffice to handle 40 million tweets.
+### This file reads in the Climate Change Twitter Dataset, filters and hydrates
+### it. Also included is a function to convert the CCTD dataset to an sf
+### object and save it as a feather file.
 
 source("~/Masterarbeit/R/packages.R")
 
@@ -55,17 +54,32 @@ v2_lookup_tweets <- function(
 
 
 ## Read in CCTD dataset ----
-read_german_cctd <- function() {
-  cctd <- read_csv(
-    "data/The Climate Change Twitter Dataset.csv",
-    col_select = c("created_at", "id", "lng", "lat", "topic", "stance")
-  )
+read_german_cctd <- function(force = FALSE) {
+  file <- "data/cctd_de_sf.feather"
   
-  # Filter out non-geotagged tweets and tweets outside of Germany
-  cctd %>%
-    filter(!is.na(cctd$lat)) %>%
-    st_as_sf(coords = c("lng", "lat"), crs = 4326) %>%
-    filter(as.logical(st_contains(germany, ., sparse = FALSE)))
+  if (!file.exists(file) || force) {
+    cctd <- read_csv(
+      "data/The Climate Change Twitter Dataset.csv",
+      col_select = c("created_at", "id", "lng", "lat", "topic", "stance")
+    )
+    
+    germany <- get_admin("Staat") %>%
+      st_transform(4326) %>%
+      st_make_valid()
+    
+    # Filter out non-geotagged tweets and tweets outside of Germany
+    cctd <- cctd %>%
+      filter(!is.na(cctd$lat)) %>%
+      st_as_sf(coords = c("lng", "lat"), crs = 4326) %>%
+      filter(as.logical(st_contains(germany, ., sparse = FALSE))) %>%
+      filter(lang == "de") %>%
+      mutate(id = as.character(id))
+    
+    sfarrow::st_write_feather(cctd, file)
+    cctd
+  } else {
+    sfarrow::st_read_feather(file)
+  }
 }
 
 
@@ -87,23 +101,4 @@ format_lookup <- function(tweets) {
     lazy_dt()
 }
 
-
-cctd_hydrated <- v2_lookup_tweets(
-  ids = cctd$id,
-  expansion = c("geo.place_id", "author_id"),
-  place.fields = c("full_name", "id", "contained_within", "country_code", "geo", "name", "place_type"),
-  user.fields = c("location", "created_at", "description"),
-  tweet.fields = c("author_id", "created_at", "geo", "lang", "source")
-)
-
-cctd_hydrated <- format_lookup(cctd_hydrated)
-
-
-hydrated_tweets <- v2_lookup_tweets(
-  ids = ids,
-  expansion = c("geo.place_id", "author_id"),
-  place.fields = c("full_name", "id", "contained_within", "country_code", "geo", "name", "place_type"),
-  user.fields = c("location", "created_at", "description"),
-  tweet.fields = c("author_id", "created_at", "geo", "lang", "source")
-)
 

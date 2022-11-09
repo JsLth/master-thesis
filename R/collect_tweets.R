@@ -4,11 +4,12 @@
 ### the function while this code file executes the function).
 
 source("~/Masterarbeit/R/search_tweets.R")
-source("~/Masterarbeit/R/dictionaries.R")
+source("~/Masterarbeit/R/lists.R")
+source("~/Masterarbeit/R/utils.R")
 
 search_day <- free_dates()[1]
 
-tweets <- collect_tweets(
+collect_tweets(
   query = sprintf("(%s) lang:de -is:verified", paste(keywords, collapse = " OR ")),
   day = search_day,
   expansion = c("geo.place_id", "author_id"),

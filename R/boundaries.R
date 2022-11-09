@@ -8,7 +8,7 @@ source("~/Masterarbeit/R/packages.R")
 #' @param what Which administrative level to extract. Possible values are
 #' `Staat`, `Bundesland`, `Regierungsbezirk`, `Verwaltungsgebiete`, `Grenzlinien`,
 #' `Kreis`, `Gemeinden`, and `Gemeindepunkte`
-get_admin <- function(what) {
+get_admin <- function(what, crs = 3035) {
   wfs <- WFSClient$new("https://sgx.geodatenzentrum.de/wfs_vg250", serviceVersion = "2.0.0")
   
   types <- wfs$capabilities$getFeatureTypes(pretty = TRUE)
@@ -18,7 +18,8 @@ get_admin <- function(what) {
   admin <- wfs$getFeatures(type) %>%
     st_cast("GEOMETRYCOLLECTION") %>%
     st_collection_extract("POLYGON") %>%
-    set_rownames(NULL)
+    set_rownames(NULL) %>%
+    st_transform(crs)
   
   if (what == "Staat") {
     # Country boundaries are not valid off-the-shelf and are divided in the
@@ -27,7 +28,7 @@ get_admin <- function(what) {
       st_make_valid() %>%
       st_combine()
   } else if (what == "Kreis") {
-    # Kreise are returned as multiple polygons. Union these to a single one.b
+    # Kreise are returned as multiple polygons. Union these to a single one
     admin <- admin %>%
       group_by(ags) %>%
       summarise(gen = unique(gen))

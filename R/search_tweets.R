@@ -168,30 +168,3 @@ v2_search_tweets <- function(
     req_error(is_error = function(res) FALSE) %>%
     req_perform()
 }
-
-
-check_date <- function(date) {
-  date <- as_datetime(date) %>%
-    floor_date(unit = "days") %>%
-    add(dseconds(1)) %>%
-    interval(end = ceiling_date(., unit = "days"))
-  
-  tweets <- dir("data/tweets") %>%
-    str_replace("_[0-9]*\\.rds", "") %>%
-    unique() %>%
-    as_datetime(format = "%y%m%d")
-  
-  !any(vapply(tweets, `%within%`, FUN.VALUE = logical(1), date))
-}
-
-
-free_dates <- function() {
-  lapply(1:6, function(days) {
-    date <- floor_date(now(), unit = "days") - ddays(days)
-    if (check_date(date)) date else NULL
-  }) %>%
-    unlist() %>%
-    as_datetime(tz = Sys.timezone()) %>%
-    format("%Y-%m-%d") %>% 
-    rev()
-}
