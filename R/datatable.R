@@ -29,7 +29,7 @@ twitter_to_dt <- function(file, filter = TRUE) {
     out %>%
       filter(has_geo & is_not_automated) %>%
       mutate(place_name = name.y) %>%
-      select(
+      dplyr::select(
         text, id, author_id, geo.place_id, source, created_at.x, location,
         place_name, place_type, geo.bbox
       ) %>%

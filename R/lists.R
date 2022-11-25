@@ -31,167 +31,225 @@ keywords_df <- data.frame(
   )
 )
 
-
+# seedwords #1
 seed <- list(
   supporting = c(
-    "klimakatastroph", "klimakris", "umweltschutz",
+    "klimakatastrophe", "klimakrise", "umweltschutz",
     "wissenschaft", "klimakriseistjetzt",
     "artenkollaps", "govegan", "klimaziel", "klimaschutz"
   ),
   opposing = c(
-    "klimahysteri", "gruenermist",
+    "klimahysterie", "gruenermist",
     "grueneninkompetenz", "panik",
-     "volk", "eigenverantwort", "propaganda",
+    "volk", "eigenverantwortung", "propaganda",
     "staatsfunk"
   )
 )
 
-
+# seedwords #2
 seed <- list(
   supporting = c(
     "klimakriseistjetzt", "wasserknappheit", "klimakatastrophe", "artenkollaps",
-    "waldbrände", "dürre",  "flächenverbrauch", "ressourcen"
+    "waldbrände", "dürre",  "flächenverbrauch", "abholzung", "klimakrise",
+    "govegan", "umweltzerstörung"
   ),
   opposing = c(
-    "klimahysterie", "grünermist", "meinungsfreiheit", "staatsfunk", #"narrativ",
-    "ökofaschisten", "gruenesekte", "ideologen", "linksgrünen"#, "indoktrination"
+    "klimahysterie", "grünermist", "meinungsfreiheit", "ökofaschisten",
+    "gruenesekte", "ideologen", "linksgrünen", "staatsfunk", "verbotspartei",
+    "eigenverantwortung", "öko"
   )
 )
+
+# seedwords #3
+seed <- data.frame(
+  supporting = c(
+    "klimakriseistjetzt", "klimakrise", "klimakatastrophe", "klimagerechtigkeit",
+    "climatejustice", "klimanotstand", "climatecrisis", "climateemergency",
+    "endfossilfuels", "artenkollaps", "artensterben",
+    "artenschutz", "biodiversität", "biodiversitätskrise", "regenwald",
+    "artenvielfalt", "naturschutz", "umweltschutz", "umweltzerstörung",
+    "klimastreik", "fridaysforfuture", "hitzewelle", "wasserknappheit",
+    "wasserversorgung", "klimakollaps", "klimaapokalypse", "climateaction",
+    "climateactionnow", "climateendgame", "umweltkatastrophe",
+    "umweltverschmutzung", "klimazerstörung", "waldsterben", "borkenkäfer",
+    "ressourcenverschwendung", "insektensterben", "klimafolgen"
+  ),
+  opposing = c(
+    "klimahysterie", "ökofaschisten", "öko", "öko-", "ökoterroristen",
+    "öko-terroristen", "klimaterroristen", "klima-terroristen", "klima-chaoten",
+    "gruenermist", "grünermist", "ideologie", "ideologien", "gruenesekte",
+    "gruenekhmer", "grueneninkompetenz", "ideologisch", "freiheit",
+    "ideologische", "meinungsfreiheit", "linksgrüne", "linksgrünen",
+    "klimakleber", "klima-kleber", "klima-klebern", "letztedegeneration",
+    "woke", "woken", "staatsfunk", "klima-extremisten", "öko-sozialismus",
+    "öko-faschisten", "eigenverantwortung", "indoktrination", "links-grüne",
+    "klima-sekte", "wohlstand"
+  )
+)
+
 
 
 allowed_keys <- c("boundary", "natural", "place")
 allowed_levels <- c("street", "locality", "district", "city")
 
 inkar_sel <- c(
-  altersverhältnis = "Verhältnis junge zu alte Erwerbsfähige",
-  ohne_berufsabschluss = "Beschäftigte ohne Berufsabschluss",
   akademiker = "Beschäftigte mit akademischem Berufsabschluss",
-  unterbeschäftigung = "Unterbeschäftigungsquote",
   industriequote = "Industriequote",
-  dienstleistungsquote = "Dienstleistungsquote",
   erwerbstätige_primsek = "Erwerbstätige Primärer Sektor",
-  erwerbstätige_seksek = "Erwerbstätige Sekundärer Sektor",
-  erwerbstätige_tersek = "Erwerbstätige Tertiärer Sektor",
   kreative_klasse = "Beschäftigte in Kreativbranchen",
-  beschäftigte_wissen = "Beschäftigte in wissensintensiven Industrien",
-  schutzsuchende = "Schutzsuchende an Bevölkerung",
   lebenserwartung = "Lebenserwartung",
-  wahlbeteiligung = "Wahlbeteiligung",
-  stimmenanteile_grüne = "Stimmenanteile Grüne",
-  stimmenanteile_linke = "Stimmenanteile Die Linke",
   stimmenanteile_afd = "Stimmenanteile AfD",
-  abitur = "Schulabgänger mit allgemeiner Hochschulreife",
-  schulabbrecher = "Schulabgänger ohne Abschluss",
-  haushaltseinkommen = "Haushaltseinkommen",
   erholungsfläche = "Erholungsfläche je Einwohner",
-  freifläche = "Freifläche je Einwohner",
-  landwirtschaftsfläche = "Landwirtschaftsfläche",
-  stickstoffüberschuss = "Stickstoffüberschuss",
-  krankenhausbetten = "Krankenhausbetten",
-  ärzte = "Ärzte",
-  einkommenssteuer = "Einkommensteuer",
   sachinvestitionen = "Ausgaben für Sachinvestitionen",
   städtebauförderung_lang = "Städtebauförderung (langfristig)",
   städtebauförderung_kurz = "Städtebauförderung (kurzfristig)",
-  hochschulförderung_lang = "Hochschulförderung (langfristig)",
-  hochschulförderung_kurz = "Hochschulförderung (kurzfristig)",
-  ländlichkeit = "Ländlichkeit",
-  sgb2 = "SGB II - Quote",
-  erreichbarkeit_autobahnen = "Erreichbarkeit von Autobahnen",
-  erreichbarkeit_fernverkehr = "Erreichbarkeit von IC/EC/ICE-Bahnhöfen",
-  erreichbarkeit_versorgung = "Nahversorgung Supermärkte Durchschnittsdistanz",
-  erreichbarkeit_öpnv = "Nahversorgung Haltestellen des ÖV Durchschnittsdistanz",
-  pendlersaldo = "Pendlersaldo",
   pkwdichte = "Pkw-Dichte",
-  bip_pk = "Bruttoinlandsprodukt je Einwohner",
-  investitionen_seksek = "Investitionen im Bergbau und Verarb. Gewerbe",
-  bws_primsek = "Anteil Bruttowertschöpfung Primärer Sektor",
-  bws_seksek = "Anteil Bruttowertschöpfung Sekundärer Sektor",
-  bws_tersek = "Anteil Bruttowertschöpfung Tertiärer Sektor",
-  versorgung_hausarzt = "Wohnungsnahe Grundversorgung Hausarzt",
-  #versorgung_supermarkt = "Wohnungsnahe Grundversorgung Supermarkt",
-  versorgung_apotheke = "Wohnungsnahe Grundversorgung Apotheke",
-  versorgung_grundschule = "Wohnungsnahe Grundversorgung Grundschule",
-  #versorgung_krankenhaus = "Krankenhausversorgung",
-  versorgung_breitband = "Breitbandversorgung",
-  mietpreise = "Mietpreise"
-)
-
-ioer_sel <- c(
-  windkraft_pro_10000 = "Anzahl Windkraftanlagen pro 10000 Einwohner",
-  bodenversiegelung = "Bodenversiegelung",
-  naturbetont = "Naturbetonte Flächen",
-  neuinanspruchnahme = "Relative fünfjährliche Flächenneuinanspruchnahme baulich geprägter SuV",
-  naturschutz = "Natur- und Artenschutz",
-  überschwemmungsgefahr = "Siedlungslast im Überschwemmungsgebiet",
-  solarflächenanteil = "Solarflächenanteil",
-  windkraftdichte = "Windkraftanlagendichte"
-)
-
-
-
-# 1
-inkar_sel <- c(
-  industriequote = "Industriequote",
-  kreative_klasse = "Beschäftigte in Kreativbranchen",
-  schutzsuchende = "Schutzsuchende an Bevölkerung",
-  lebenserwartung = "Lebenserwartung",
-  freifläche = "Freifläche je Einwohner",
-  einkommenssteuer = "Einkommensteuer",
-  städtebauförderung_kurz = "Städtebauförderung (kurzfristig)",
-  pkwdichte = "Pkw-Dichte",
-  bip_pk = "Bruttoinlandsprodukt je Einwohner",
-  bws_primsek = "Anteil Bruttowertschöpfung Primärer Sektor",
-  mietpreise = "Mietpreise"
+  unter_6 = "Einwohner unter 6 Jahre",
+  unter_18 = "Einwohner von 6 bis unter 18 Jahren",
+  unter_25 = "Einwohner von 18 bis unter 25 Jahren",
+  unter_30 = "Einwohner von 25 bis unter 30 Jahren"
 )
 
 ioer_sel <- c(
   windkraft_pro_10000 = "Anzahl Windkraftanlagen pro 10000 Einwohner",
   neuinanspruchnahme = "Relative fünfjährliche Flächenneuinanspruchnahme baulich geprägter SuV",
   naturschutz = "Natur- und Artenschutz",
-  überschwemmungsgefahr = "Siedlungslast im Überschwemmungsgebiet",
-  solarflächenanteil = "Solarflächenanteil"
+  überschwemmungsgefahr = "Siedlungslast im Überschwemmungsgebiet"
 )
 
-
+osm_features <- list(
+  amenity = c(
+    "cafe", "library", "school", "social_facility", "social_centre",
+    "community_centre", "public_bookcase", "animal_shelter"
+  ),
+  leisure = c("fitness_centre", "fitness_station", "hackerspace"),
+  office = c(
+    "ngo", "association", "charity", "educational_institution", "research",
+    "engineer", "it", "geodesist", "surveyor"
+  ),
+  shop = c("books")
+)
 
 var_sel <- c(
   industriequote = "Industriequote",
   kreative_klasse = "Beschäftigte in Kreativbranchen",
-  bip_pk = "Bruttoinlandsprodukt je Einwohner",
+  akademiker = "Beschäftigte mit akademischem Berufsabschluss",
   erwerbstätige_primsek = "Anteil Bruttowertschöpfung Primärer Sektor",
-  schutzsuchende = "Schutzsuchende an Bevölkerung",
+  unter_30 = "Einwohner unter 30 Jahren",
   lebenserwartung = "Lebenserwartung",
   pkwdichte = "Pkw-Dichte",
-  erreichbarkeit_öpnv = "Nahversorgung Haltestellen des ÖV Durchschnittsdistanz",
-  naturbetont = "Naturbetonte Flächen",
-  einkommenssteuer = "Einkommensteuer",
-  städtebauförderung_kurz = "Städtebauförderung (kurzfristig)",
+  scenes = "Cultural Scenes",
+  stimmenanteile_afd = "Stimmenanteile AfD",
   neuinanspruchnahme = "Relative fünfjährliche Flächenneuinanspruchnahme baulich geprägter SuV",
+  städtebauförderung_kurz = "Städtebauförderung (kurzfristig)",
+  sachinvestitionen = "Ausgaben für Sachinvestitionen",
   naturschutz = "Natur- und Artenschutz",
   windkraft_pro_10000 = "Anzahl Windkraftanlagen pro 10000 Einwohner",
   überschwemmungsgefahr = "Siedlungslast im Überschwemmungsgebiet",
-  bodenversiegelung = "Bodenversiegelung"
+  erholungsfläche = "Erholungsfläche je Einwohner"
 )
 
 
 sel_eng <- c(
-  industriequote = "Share of industry workers",
-  kreative_klasse = "Share of creative workers",
-  bip_pk = "GDP per capita",
-  erwerbstätige_primsek = "Share of primary sector workers",
-  schutzsuchende = "Share of protection seekers",
+  industriequote = "Industry employment",
+  kreative_klasse = "Creative employment",
+  haushaltseinkommen = "Household income",
+  erwerbstätige_primsek = "Primary employment",
+  schutzsuchende = "Protection seekers",
   lebenserwartung = "Life expectancy",
   pkwdichte = "Car density",
   mietpreise = "Average rent",
-  erholungsfläche = "Recreational areas per capita",
-  einkommenssteuer = "Income tax per capita",
-  städtebauförderung_kurz = "Short-term urban funding",
-  neuinanspruchnahme = "Relative land consumption",
-  naturschutz = "Share of nature conservation areas",
-  windkraft_pro_10000 = "Wind turbines per 10,000 residents",
-  überschwemmungsgefahr = "Settlement load in flood plains",
-  solarflächenanteil = "Share of solar farms"
+  erholungsfläche = "Recreational areas",
+  einkommenssteuer = "Income tax",
+  städtebauförderung_kurz = "Urban funding",
+  neuinanspruchnahme = "Land consumption",
+  naturschutz = "Nature conservation",
+  windkraft_pro_10000 = "Wind turbines",
+  überschwemmungsgefahr = "Flood exposition",
+  erreichbarkeit_öpnv = "Public transport",
+  naturbetont = "Natural areas",
+  stimmenanteile_afd = "Votes for AfD",
+  stimmenanteile_grüne = "Votes for Greens",
+  stimmenanteile_linke = "Votes for Left",
+  sachinvestitionen = "Capital expenditure",
+  bodenversiegelung = "Soil sealing",
+  altersverhältnis = "Age ratio",
+  erholungsfläche = "Recreational area",
+  akademiker = "Graduate employment",
+  stickstoffüberschuss = "Excess nitrogen",
+  solarflächenanteil = "Solar surface",
+  scenes = "Cultural amenities",
+  unter_30 = "Younger than 30"
 )
 
-model_var <- unname(c(names(inkar_sel), names(ioer_sel)))
+
+
+# change to tabularx
+var_sel_latex <- data.frame(
+  "Name" = sel_eng[names(var_sel)],
+  "Description" = c(
+    "Percentage of employees in extractive, manufacturing or building industries, energy/water supply or garbage disposal",
+    "Percentage of employees in creative industries such as film, music, radio, print media, architecture and design",
+    "Gross domestic product measured as 1000 € per capita",
+    "Percentage of employees in agriculture, forestry and fishing",
+    "Percentage of residents younger than 30 years relative to all residents",
+    "Average life expectancy of a newborn in years",
+    "Number of cars per 1,000 residents",
+    "Number of cultural amenities indicating egalitarian or rational scenescapes per capita according to \\textcite[100f]{Silver2016}, particularly cafés, libraries, schools, social facilities, social centers, community centers, public bookcases, animal shelters, fitness centers, fitness stations, hackerspaces, NGOs, associations, charities, educational institutions, research facilities and engineering/IT/geodesy/land survey offices based on their respective OSM feature tags",
+    "Valid secondary votes for the `Alternative für Deutschland' party relative to all secondary votes",
+    "Percentage rate of change in built-up settlement and transport areas within five years \\footnote{A full account of the methodology is given in \\textcite{Schorcht2016}}",
+    "Proposed long-term federal financial assistance for urban development funding measured in € per capita, includes means for redevelopment and development, urban monument protection, socially integrative cities (`Soziale Stadt'), urban redevelopment, active city and district centers, smaller cities and communities and future urban greening",
+    "Expenditure on property, plant and equipment measured in € per capita, i.e., construction measures, acquisition of movable property and acquisition of immovable property",
+    "Share of national parks, nature reserves, fauna-flora habitat areas and European bird sanctuaries divided by the total area",
+    "Number of onshore wind turbines per 10,000 residents",
+    "Share of built-up settlement and traffic areas in the officially designated floodplain divided by the area of the designated floodplain",
+    "Recreational areas per 10,000 residents, i.e., undeveloped areas to be used for sports, recreation or exhibition of animals and plants"
+  ),
+  "Source" = c(
+    "INKAR",
+    "INKAR",
+    "INKAR",
+    "INKAR",
+    "INKAR",
+    "INKAR",
+    "INKAR",
+    "OSM",
+    "INKAR",
+    "IÖR",
+    "INKAR",
+    "INKAR",
+    "IÖR",
+    "IÖR",
+    "IÖR",
+    "INKAR"
+  ),
+  "Year" = c(
+    2019,
+    2019,
+    2019,
+    2019,
+    2019,
+    2017,
+    2019,
+    2022,
+    2017,
+    2021,
+    2019,
+    2019,
+    2019,
+    2020,
+    2021,
+    2019
+  )
+) %>%
+  kableExtra::kbl(
+    format = "latex",
+    row.names = FALSE,
+    col.names = colnames(.),
+    caption = "Overview and descriptions of the 16 independent variables included in the statistical models",
+    label = "indep",
+    booktabs = TRUE,
+    escape = FALSE,
+    align = c("l", "l", "l", "l")
+  ) %>%
+  kable_paper()

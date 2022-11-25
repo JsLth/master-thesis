@@ -265,6 +265,14 @@ cleanup_ioer <- function(ind, include_gen = TRUE) {
 }
 
 
+nested_list_to_sql <- function(x) {
+  paste(names(x), "IN", x) %>%
+    str_replace_all(fixed("c("), "(") %>%
+    str_replace_all(fixed("books"), "('books')") %>%
+    paste(collapse = " OR ")
+}
+
+
 # Links indicator names to indicator IDs
 ioer_ids <- list(
   "Abbau-/Haldenfläche" = "F13RG",

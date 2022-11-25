@@ -115,6 +115,8 @@ collect_tweets <- function(query, day, ...) {
     pb <- cli_progress_update(set = time_set, status = "Searching tweets")
     i <- i + 1
   }
+  
+  cli_progress_done()
 }
 
 

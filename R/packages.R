@@ -5,31 +5,40 @@ pkgs <- c(
   "tidyverse", "data.table", "dtplyr",
   
   # I/O
-  "httr2", "jsonlite", "ows4R", "readr", "arrow", "sfarrow",
+  "httr2", "jsonlite", "ows4R", "readr", "arrow", "sfarrow", "osmextract",
   
   # Data cleaning
   "emoji", "lubridate", "zoo",
   
   # Debugging and convenience
-  "cli", "callr", "bench", "magrittr", "rlang", "retry",
+  "cli", "callr", "processx", "bench", "magrittr", "rlang", "retry", "R.utils",
   
   # Text semantics
   "stringr", "quanteda", "quanteda.textstats", "quanteda.textplots",
-  "quanteda.textmodels", "LSX",
+  "quanteda.textmodels", "LSX", "rsvd",
   
   # Geoprocessing
-  "sf", "sp", "spdep", "spgwr", "mgwrsar", "geostan", "gwrr", "GWmodel",
+  "sf", "sp",  "stars", "starsExtra",
   
-  # Presentation
-  "tmap", "ggpubr", "texreg", "ggnewscale", "kableExtra", "stargazer", "Cairo",
-  "patchwork", "gridExtra", "latex2exp", "extrafont"
+  # Spatial statistics
+  "spdep", "spgwr", "GWmodel", "lme4", "merTools", "lmerTest",
+  
+  # Visualization
+  "tmap", "ggpubr", "ggnewscale", "Cairo", "patchwork", "gridExtra",
+  "latex2exp", "extrafont", "classInt", "RColorBrewer", "pheatmap",
+  
+  # LaTeX
+  "kableExtra", "stargazer", "modelsummary", "huxtable", "flextable",
+  
+  # Parallelization
+  "furrr", "multidplyr", "progressr"
 )
 
 if (!all(pkgs %in% names(sessionInfo()$otherPkgs))) {
   cli::cli_progress_step(
     msg = "Attaching packages...",
     msg_done = "Successfully attached all packages.",
-    msg_failed = "Could not attack all packages."
+    msg_failed = "Could not attach packages."
   )
   
   suppressMessages(packages(pkgs, prompt = FALSE))

@@ -42,7 +42,7 @@ model_selection <- function(formula,
           extra = list(tested = sprintf("%s, %s and %s", kernel, approach, adaptname))
         )
         suppressWarnings({
-          capture.output(bw <- GWmodel::bw.gwr(
+          captureOutput(bw <- GWmodel::bw.gwr(
             formula,
             data_sp,
             kernel = kernel,
@@ -50,7 +50,7 @@ model_selection <- function(formula,
             adaptive = adaptive[i]
           ))
           
-          capture.output(
+          captureOutput(
             modelselect[[adaptname]][[approach]][[kernel]] <- gwr.basic(
               formula,
               data = data_sp,
@@ -91,7 +91,7 @@ model_selection <- function(formula,
     exp_specs <- expand.grid(
       Kernel = c("fixed", "adaptive"),
       Function = str_to_title(kernels),
-      Approach = str_to_title(approaches)
+      Approach = approaches
     ) %>%
       rev()
     modelselect_df <- modelselect %>%
@@ -109,12 +109,13 @@ model_selection <- function(formula,
     
     opt_row <- modelselect_df %>%
       select(Approach, Function, Kernel, all_of(diagnostic)) %>%
-      slice_min(.[[diagnostic]])
-    
+      slice_min(.[[diagnostic]]) %>%
+      magrittr::extract(1, )
+
     solution <- c(
-      opt_row$Function,
-      opt_row$Kernel,
-      opt_row$Approach
+      tolower(opt_row$Function),
+      as.character(opt_row$Kernel),
+      toupper(opt_row$Approach)
     ) %>%
       as.character() %>%
       set_names("func", "type", "approach")
@@ -418,3 +419,288 @@ gwr.mixed.fixed <- function(formula, data, regression.points, fixed.vars,interce
 
 
 R.utils::reassignInPackage("gwr.mixed", "GWmodel", gwr.mixed.fixed)
+
+
+
+plot_gwr <- function(model,
+                     col,
+                     type = c("coef", "r2", "se"),
+                     style = c("mennis1", "mennis2", "mennis3", "mennis4", "matthews"),
+                     p_method = c("fb", "bh", "bo", "by"),
+                     palette = "PRGn",
+                     vertical = TRUE,
+                     ma.breaks.n = 3,
+                     ...) {
+  p_method <- match.arg(p_method)
+  style <- match.arg(style)
+  type <- match.arg(type)
+  
+  mdlt <- msgwr_model$this.call[1] %>%
+    deparse() %>%
+    str_remove_all("gwr\\.|\\(\\)")
+  
+  if (mdlt == "multiscale" && type == "r2") {
+    cli_abort("Cannot plot local R2 of a multiscale model.")
+  }
+
+  spat <- model$SDF
+  names(spat) <- str_remove_all(names(spat), "scale\\(|\\)")
+  spat <- st_as_sf(spat)[col]
+  padj <- suppressWarnings(
+    gwr.t.adjust(model)$
+      results[[p_method]][, paste(col, "p", p_method, sep = "_")]
+  )
+  sig <- padj <= 0.1
+  
+  if (style == "mennis1") {
+    spat_all <- st_union(spat)
+    spat_del <- spat[sig, ]
+    
+    m <- tm_shape(spat_all) +
+      tm_polygons(border.alpha = 1)
+    
+    if (nrow(spat)) {
+      m <- m +
+        tm_shape(spat_del) +
+        tm_borders() +
+        tm_fill(
+          col = col,
+          palette = palette,
+          midpoint = 0,
+          textNA = "not significant at 90 %",
+          colorNA = NULL,
+          showNA = TRUE
+        ) +
+        tm_layout(frame = FALSE, ...)
+    }
+  } else if (style == "mennis2") {
+    spat_sig <- spat
+    spat_sig[[col]][!sig] <- NA
+    
+    m <- tm_shape(spat_sig) +
+      tm_borders() +
+      tm_fill(
+        col = col,
+        palette = palette,
+        midpoint = 0,
+        textNA = "not significant at 90 %",
+        colorNA = "gray80",
+        showNA = TRUE
+      ) +
+      tm_layout(frame = FALSE, ...)
+  } else if (style == "mennis3") {
+
+    sig_cols <- colnames(padj)
+    
+    sig_labels <- c(
+      "not significant at 90 %", "significant at 90 %", "significant at 95 %",
+      "significant at 99 %", "significant at 99.5 %"
+    )
+    
+    for (sc in sig_cols) {
+      # set significance levels
+      spat[sc] <- sig_labels[1]
+      spat[padj[, sc] <= 0.1, sc] <- sig_labels[2]
+      spat[padj[, sc] <= 0.05, sc] <- sig_labels[3]
+      spat[padj[, sc] <= 0.01, sc] <- sig_labels[4]
+      spat[padj[, sc] <= 0.0015, sc] <- sig_labels[5]
+    }
+
+    ncols <- length(col)
+    
+    # order coefficients and significance in alternating order
+    if (vertical) {
+      sn <- setdiff(names(spat), "geometry")
+      sorder <- sn %>%
+        split(rep_len(seq(1, ncols), length(sn))) %>%
+        unlist(use.names = FALSE)
+      spat <- spat[sorder]
+      ncol <- 2
+      nrow <- NA
+    } else {
+      sorder <- col
+      ncol <- NA
+      nrow <- 2
+    }
+
+
+    # Alternating values for facets
+    greys <- rev(hcl.colors(5, "Grays"))
+    pals <- riffle(rep(palette, ncols), rep(list(greys), ncols))
+    styles <- riffle(rep("cont", ncols), rep("fixed", ncols))
+    breaks <- riffle(rep(list(NULL), ncols), rep(list(sig_labels), ncols))
+    titles <- sapply(col, \(x) {
+      if (x %in% names(sel_eng)) {
+        x <- rep(sel_eng[[x]], 2)
+      }
+      
+      x[1] <- paste(x[1], "Coefficient", sep = "\n")
+      x[2] <- paste(x[2], "t-value", sep = "\n")
+      x
+    })
+
+    m <- tm_shape(spat) +
+      tm_borders(lwd = 0.1) +
+      tm_fill(col = sorder,
+              palette = pals,
+              title = titles,
+              style = styles,
+              breaks = breaks,
+              midpoint = 0,
+              textNA = "no data",
+              colorNA = "white",
+              showNA = NA) +
+      tm_layout(frame = FALSE,
+                inner.margins = c(0, 0.3, 0, 0),
+                legend.width = 1,
+                legend.height = 1,
+                legend.position = c("LEFT", "TOP"),
+                legend.title.fontface = "bold",
+                legend.title.size = 1.2,
+                legend.text.size = 1,
+                panel.label.bg.color = NA,
+                ...) +
+      tm_facets(free.coords = FALSE,
+                free.scales = TRUE,
+                ncol = ncol,
+                nrow = nrow)
+      
+  } else if (style == "mennis4") {
+    sig_cols <- colnames(padj)
+    ncols <- length(col)
+    
+    spat <- bind_cols(spat, padj)
+    
+    if (vertical) {
+      sn <- setdiff(names(spat), "geometry")
+      sorder <- sn %>%
+        split(rep_len(seq(1, ncols), length(sn))) %>%
+        unlist(use.names = FALSE)
+      spat <- spat[sorder]
+      ncol <- 2
+      nrow <- NA
+    } else {
+      sorder <- col
+      ncol <- NA
+      nrow <- 2
+    }
+    
+    p_labels <- c(0, 0.005, 0.01, 0.05, 0.1, 1)
+    sig_labels <- c(
+      "significant at 99.5 %", "significant at 99 %", "significant at 95 %",
+      "significant at 90 %", "not significant at 90 %"
+    )
+    
+    greys <- hcl.colors(length(p_labels), "Grays")
+    pals <- riffle(rep(palette, ncols), rep(list(greys), ncols))
+    styles <- riffle(rep("cont", ncols), rep("fixed", ncols))
+    breaks <- riffle(rep(list(NULL), ncols), rep(list(p_labels), ncols))
+    labels <- riffle(rep(list(NULL), ncols), rep(list(sig_labels), ncols))
+    titles <- sapply(col, \(x) {
+      if (x %in% names(sel_eng)) {
+        x <- rep(sel_eng[[x]], 2)
+      }
+      
+      x[1] <- paste(x[1], "Coefficient", sep = "\n")
+      x[2] <- paste(x[2], "p-value", sep = "\n")
+      x
+    })
+    
+    lab_fun <- function(x) {
+      
+    }
+
+    m <- tm_shape(spat) +
+      tm_borders() +
+      tm_shape(spat) +
+      tm_fill(col = sorder,
+              palette = as.list(pals),
+              title = titles,
+              style = styles,
+              breaks = breaks,
+              labels = labels,
+              midpoint = 0,
+              textNA = "no data",
+              colorNA = "white",
+              showNA = NA) +
+      tm_layout(frame = FALSE,
+                inner.margins = c(0, 0.3, 0, 0),
+                legend.width = 1,
+                legend.height = 1,
+                legend.position = c("LEFT", "TOP"),
+                legend.title.fontface = "bold",
+                legend.title.size = 1.2,
+                legend.text.size = 1,
+                panel.label.bg.color = NA,
+                ...) +
+      tm_facets(free.coords = FALSE,
+                free.scales = TRUE,
+                ncol = ncol,
+                nrow = nrow)
+  } else if (style == "matthews") {
+    pdf <- padj %>%
+      as_tibble() %>%
+      st_sf(geometry = st_geometry(spat))
+    
+    grd <- starsExtra::make_grid(pdf, 1000)
+    
+    iso <- list()
+    for (n in colnames(padj)) {
+      rgrd <- st_rasterize(pdf[n], template = grd)
+      rgrd <- terra::rasterize(x = terra::vect(pdf[n]), terra::rast(grd), field = n) %>%
+        st_as_stars()
+      if (length(unique(padj[, n])) > 1) {
+        iso_breaks <- classIntervals(na.omit(as.vector(rgrd[[1]])), n = ma.breaks.n)$brks
+        rgrd <- st_contour(rgrd, contour_lines = TRUE, breaks = iso_breaks)
+        
+        if (nrow(rgrd)) {
+          iso[[n]] <- rgrd
+        } else {
+          iso[n] <- list(NULL)
+        }
+      } else {
+        iso[n] <- list(NULL)
+      }
+    }
+    
+    titles <- sapply(col, \(x) {
+      if (x %in% names(sel_eng)) {
+        x <- sel_eng[[x]]
+      }
+      
+      x[1] <- paste(x[1], "Coefficient", sep = "\n")
+      x
+    })
+    
+    m <- list()
+    for (i in seq_along(col)) {
+      m[[i]] <- tm_shape(spat) +
+        tm_fill(col = col[i],
+                palette = palette,
+                title = titles,
+                style = "cont",
+                midpoint = 0,
+                textNA = "no data",
+                colorNA = "white",
+                showNA = NA)
+
+      if (!is.null(iso[[i]])) {
+        names(iso[[i]])[1] <- "cont"
+        m[[i]] <- m[[i]] +
+          tm_shape(iso[[i]]) +
+          tm_lines() +
+          tm_text("cont",
+                  col = "black",
+                  size = 0.5,
+                  auto.placement = TRUE,
+                  remove.overlap = FALSE,
+                  along.lines = FALSE,
+                  overwrite.lines = TRUE)
+      }
+    }
+    
+    m <- do.call(tmap_arrange, c(m, ncol = 2))
+  }
+  
+  m
+}

@@ -108,3 +108,103 @@ plot_docscores <- function(pred,
     ylab("Polarity") +
     theme_bw()
 }
+
+
+textplot_terms.textmodel_lss <- function(x, highlighted = NULL, max_words = 10000) {
+  
+  max_words <- check_integer(max_words, min_len = 1, max_len = 1, min = 1)
+  
+  if (is.null(highlighted))
+    highlighted <- character()
+  if (is.dictionary(highlighted)) {
+    separator <- meta(highlighted, field = "separator", type = "object")
+    valuetype <- meta(highlighted, field = "valuetype", type = "object")
+    concatenator <- x$concatenator
+    highlighted <- unlist(highlighted, use.names = FALSE)
+    if (!nzchar(separator) && !is.null(concatenator)) # for backward compatibility
+      highlighted <- stri_replace_all_fixed(highlighted, separator, concatenator)
+  } else {
+    highlighted <- unlist(highlighted, use.names = FALSE)
+    valuetype <- "glob"
+  }
+  words_hl <- quanteda::pattern2fixed(
+    highlighted,
+    types = names(x$beta),
+    valuetype = valuetype,
+    case_insensitive = TRUE
+  )
+  
+  # fix for a bug before v1.1.4
+  x$frequency <- x$frequency[names(x$beta)]
+  
+  beta <- frequency <- word <- NULL
+  temp <- data.frame(word = names(x$beta), beta = x$beta, frequency = log(x$frequency),
+                     stringsAsFactors = FALSE)
+  is_hl <- temp$word %in% unlist(words_hl, use.names = FALSE)
+  is_sm <- temp$word %in% sample(temp$word, min(length(temp$word), max_words))
+  temp_black <- subset(temp, is_hl)
+  temp_gray <- subset(temp, !is_hl & is_sm)
+  ggplot(data = temp_gray, aes(x = beta, y = frequency, label = word)) +
+    geom_text(aes(alpha = abs(beta) * frequency), colour = "grey70") +
+    labs(x = "Polarity", y = "Frequency (log)") +
+    scale_alpha(range = c(0.1, 1)) +
+    theme_bw() +
+    theme(panel.grid= element_blank(),
+          axis.title.x = element_text(margin = margin(t = 10, r = 0, b = 0, l = 0)),
+          axis.title.y = element_text(margin = margin(t = 0, r = 10, b = 0, l = 0)),
+          legend.position="none") +
+    ggrepel::geom_text_repel(data = temp_black, aes(x = beta, y = frequency, label = word),
+                    segment.size = 0.25, colour = "black") +
+    geom_point(data = temp_black, aes(x = beta, y = frequency), cex = 0.7, colour = "black")
+  
+}
+
+
+plot_multiple_density <- function(dfm, seeds, k, engine = "rsvd", seed = 1111) {
+  if (length(seeds[[1]]) != length(seeds[[2]])) {
+    cli_abort("Both seedword directions must be of equal length.")
+  }
+  
+  pred <- map(cli_progress_along(seeds[[1]]), function(i) {
+    si <- map(1:2, ~seeds[[.x]][1:i])
+    set.seed(seed)
+    suppressMessages(m <- textmodel_lss(
+      tw_dfm,
+      seeds = as.seedwords(si),
+      auto_weight = TRUE,
+      k = k,
+      cache = TRUE,
+      engine = engine
+    ))
+    
+    pred <- predict(
+      m,
+      newdata = dfm,
+      rescaling = TRUE,
+      min_n = 4
+    )
+  })
+  
+  pl <- ggplot()
+  for (i in seq_along(pred)) {
+    p <- pred[[i]]
+    best_fit <- i == length(pred)
+    cl <- ifelse(best_fit, "black", "grey")
+    sz <- ifelse(best_fit, 1, 0.5)
+    
+    pl <- pl +
+      geom_density(
+        data = data.frame(fit = p),
+        aes(x = fit),
+        na.rm = TRUE,
+        size = sz,
+        color = cl
+      )
+  }
+  
+  pl +
+    geom_function(fun = dnorm, args = list(mean = 0, sd = 1), size = 1, color = "green") +
+    theme_bw() +
+    labs(x = "Polarity estimate", y = "Density") +
+    scale_x_continuous(expand = c(0, 0))
+}

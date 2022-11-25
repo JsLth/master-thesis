@@ -185,7 +185,7 @@ batch_geocode <- function(text, id, size = 3, lang = "en") {
         ifelse(has_name(res, "type"), type %in% allowed_levels, TRUE),
         ifelse(has_name(res, "osm_key"), osm_key %in% allowed_keys, TRUE)
       ) %>%
-      select(name, type, geometry)
+      dplyr::select(name, type, geometry)
     
     if (!length(res)) {
       tibble(text = text[[i]], id = id[[i]])
