@@ -12,23 +12,23 @@ The code files are divided into workflow files and auxiliary files. Workflow fil
 
 ### Workflow files
 
--   **main.R**: Contains the main workflow to prepare, scale, model and plot the results
--   **collect_tweets.R**: Collects tweets for the earliest possible day and saves them to ./data/tweets
--   **geocode.R**: Geocodes the earliest non-geocoded tweet package present in ./data/tweets and saves them to ./data/geo
--   **read_context_bulk**: Reads context variables from INKAR, IOER and OSM
+-   [**main.R**](./R/main.R): Contains the main workflow to prepare, scale, model and plot the results
+-   [**collect_tweets.R**](./R/collect_tweets.R): Collects tweets for the earliest possible day and saves them to ./data/tweets
+-   [**geocode.R**](./R/geocode.R): Geocodes the earliest non-geocoded tweet package present in ./data/tweets and saves them to ./data/geo
+-   [**read_context_bulk**](./R/read_context_bulk.R): Reads context variables from INKAR, IOER and OSM
 
 ### Auxiliary files
 
--   **boundaries.R**: Functions to collect data on administrative boundaries
--   **gather.R**: Functions to read (and filter) tweet packages
--   **globals.R**: Creates objects that are needed by multiple other code files
--   **hydrate.R**: Functions to get tweets from IDs
--   **read_context**: Functions that facilitate reading and cleaning context data
--   **read_destatis.R**: Functions to read data from destatis
--   **packages.R**: Loads all the packages needed for any of the code files (sourced in each file)
--   **photon.R**: Functions to control and query photon and filter the results
--   **search_tweets.R**: Functions to query the Twitter API
--   **tf_idf.R**: Function to calculate tf-idf values for a character vector
--   **utils.R**: Various utility functions
+-   [**boundaries.R**](./R/boundaries.R): Functions to collect data on administrative boundaries
+-   [**effects.R**](./R/effects.R): Utility functions for mixed effect models
+-   [**gather.R**](./R/gather.R): Functions to read (and filter) tweet packages
+-   [**globals.R**](./R/globals.R): Creates objects that are needed by multiple other code files
+-   [**gwr.R**](./R/gwr.R): Utility functions for GWR
+-   [**read_context**](./R/read_context.R): Functions that facilitate reading and cleaning context data
+-   [**packages.R**](./R/packages.R): Loads all the packages needed for any of the code files (sourced in each file)
+-   [**photon.R**](./R/photon.R): Functions to control and query photon and filter the results
+-   [**scaling.R**](./R/scaling.R): Utility functions for document scaling
+-   [**search_tweets.R**](./R/search_tweets.R): Functions to query the Twitter API
+-   [**utils.R**](./R/utils.R): Various utility functions
 
 ![](./plots/network.png)
