@@ -1,6 +1,6 @@
-source("~/Masterarbeit/R/packages.R")
-source("~/Masterarbeit/R/lists.R")
-source("~/Masterarbeit/R/boundaries.R")
+source("R/packages.R")
+source("R/globals.R")
+source("R/boundaries.R")
 
 if (!exists("photon")) {
   photon <- new.env()

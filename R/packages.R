@@ -2,13 +2,13 @@ library(easypackages)
 
 pkgs <- c(
   # General
-  "tidyverse", "data.table", "dtplyr",
+  "tidyverse", "data.table", "dtplyr", "easystats",
   
   # I/O
   "httr2", "jsonlite", "ows4R", "readr", "arrow", "sfarrow", "osmextract",
   
   # Data cleaning
-  "emoji", "lubridate", "zoo",
+  "emoji", "lubridate", "zoo", "xml2", "randomForest", "broom", "broom.mixed",
   
   # Debugging and convenience
   "cli", "callr", "processx", "bench", "magrittr", "rlang", "retry", "R.utils",

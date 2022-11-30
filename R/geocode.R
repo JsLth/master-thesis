@@ -1,6 +1,6 @@
-source("~/Masterarbeit/R/photon.R")
-source("~/Masterarbeit/R/datatable.R")
-source("~/Masterarbeit/R/utils.R")
+source("R/photon.R")
+source("R/gather.R")
+source("R/utils.R")
 
 # Start the local photon server
 if (!photon_running()) {

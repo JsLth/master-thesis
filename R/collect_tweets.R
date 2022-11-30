@@ -3,9 +3,9 @@
 ### to seperate evaluated from unevaluated code (i.e. other code file creates
 ### the function while this code file executes the function).
 
-source("~/Masterarbeit/R/search_tweets.R")
-source("~/Masterarbeit/R/lists.R")
-source("~/Masterarbeit/R/utils.R")
+source("R/search_tweets.R")
+source("R/globals.R")
+source("R/utils.R")
 
 search_day <- free_dates()[1]
 

@@ -1,7 +1,7 @@
-source("~/Masterarbeit/R/packages.R")
-source("~/Masterarbeit/R/lists.R")
-source("~/Masterarbeit/R/utils.R")
-source("~/Masterarbeit/R/photon.R")
+source("R/packages.R")
+source("R/globals.R")
+source("R/utils.R")
+source("R/photon.R")
 
 twitter_to_dt <- function(file, filter = TRUE) {
   day <- readr::read_rds(file)

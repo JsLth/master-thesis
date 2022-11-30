@@ -1,4 +1,4 @@
-source("~/Masterarbeit/R/packages.R")
+source("R/packages.R")
 
 # Tests models with different calibration technique and kernel functions and
 # determines the best specifications based on the model with the lowest diagnostic

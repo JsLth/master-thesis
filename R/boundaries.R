@@ -1,4 +1,4 @@
-source("~/Masterarbeit/R/packages.R")
+source("R/packages.R")
 
 #' Get administrative boundaries of Germany
 #' 

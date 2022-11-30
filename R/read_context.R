@@ -1,4 +1,4 @@
-source("~/Masterarbeit/R/packages.R")
+source("R/packages.R")
 
 read_destatis <- function(file, select = NULL) {
   file <- file.path("data/context", file)

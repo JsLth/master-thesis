@@ -1,6 +1,6 @@
-source("~/Masterarbeit/R/packages.R")
-source("~/Masterarbeit/R/lists.R")
-source("~/Masterarbeit/R/read_context.R")
+source("R/packages.R")
+source("R/globals.R")
+source("R/read_context.R")
 
 # Collect IÖR data ----
 if (askYesNo("Read IÖR data? (takes about ten minutes)")) {

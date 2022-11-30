@@ -1,4 +1,4 @@
-source("~/Masterarbeit/R/packages.R")
+source("R/packages.R")
 
 #' Collects tweets over the span of a single day. If the rate limit is reached,
 #' wait and try again after 15 minutes.

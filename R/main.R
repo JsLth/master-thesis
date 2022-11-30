@@ -1,30 +1,33 @@
-### MAIN WORKFLOW
-### At this point this code should not be sourced directly
-### because it will take a LONG time and is likely to crash
-### somewhere
+# MAIN WORKFLOW
+# At this point this code should not be sourced directly
+# because it will take way more than a full work day to process
+# and is likely to crash somewhere
 
-###############
+#
 # TODO:
-# - search for solutions to aggregate tweets by author to possibly reduce "publication bias"
+# - search for solutions to aggregate tweets by author to possibly reduce sampling bias
 # - try without lemmatizing (see Watanabe 2021)
 # - find new seedwords
 # - make illustrative kernel function plots
 # - filter out low-polarity terms
 # - compute VIF, Morans' I and non-stationarity (using Monte Carlo) for each variable
 # - look into bootstrap GWR for improving inference
-###############
+# - Remove primsek? Moderate VIF
+# - Remove random structure of non-varying variables?
+# - Create a cool network plot to make R file structure neater :)
+#
 
 # Load packages, lists and utility functions
-source("~/Masterarbeit/R/packages.R")
-source("~/Masterarbeit/R/lists.R")
-source("~/Masterarbeit/R/datatable.R")
-source("~/Masterarbeit/R/boundaries.R")
-source("~/Masterarbeit/R/scaling.R")
-source("~/Masterarbeit/R/search_tweets.R")
-source("~/Masterarbeit/R/read_context.R")
-source("~/Masterarbeit/R/gwr.R")
-source("~/Masterarbeit/R/esda.R")
-source("~/Masterarbeit/R/utils.R")
+source("R/packages.R")
+source("R/globals.R")
+source("R/gather.R")
+source("R/boundaries.R")
+source("R/scaling.R")
+source("R/search_tweets.R")
+source("R/read_context.R")
+source("R/gwr.R")
+source("R/effects.R")
+source("R/utils.R")
 
 # Set up verbosity
 options(quanteda_verbose = TRUE)
@@ -34,10 +37,11 @@ options(rgdal_show_exportToProj4_warnings = "none")
 workers <- round(availableCores() * 0.8, 0)
 plan(multisession, workers = workers)
 
+# Control randomness
+rseed <- 1111
 
-###############################################################################
-## Data preparation ----                                                     ##
-############################################################################### 
+
+#### Tweet preparation ----                                                     
 
 cli_progress_step("Reading data")
 compile_tweets <- TRUE
@@ -92,14 +96,37 @@ tw_dfm <- tw_tokens %>%
   dfm_trim(min_termfreq = 50, min_docfreq = 5) %>%
   dfm_select(c(" ", "\\n"), valuetype = "regex", selection = "remove")
 
+freq <- textstat_frequency(tw_dfm) %>%
+  filter(feature %in% str_remove_all(keywords, "#"))
+
+freq <- sapply(keywords_df$Query.parameter, function(key) {
+  key <- strsplit(key, ", ")[[1]] %>%
+    str_remove_all("#")
+  sum(freq[freq$feature %in% key, ]$frequency)
+}, USE.NAMES = FALSE)
+keywords_df$Volume <- {round(freq / sum(freq), 4) * 100} %>% paste("%")
+
+keywords_df %>%
+  kbl(
+    caption = "Environmental domains based on the planetary boundary framework by \textcite{Steffen2015} and their associated keywords in the Twitter discourse. The volume column represents the share of each domain out of all domains.",
+    label = "domains",
+    format = "latex",
+    col.names = c("Domain", "Query parameters", "Volume"),
+    align = "l",
+    booktabs = TRUE,
+    row.names = FALSE
+  ) %>%
+  kable_paper() %>%
+  str_replace_all("tabular", "tabularx") %>%
+  str_replace_all("lll", "lXl") %>%
+  str_replace_all(fixed("[t]"), "{\\textwidth}") %>%
+  cat()
 
 
-###############################################################################
-## Semantic scaling ----                                                     ##
-############################################################################### 
+#### Semantic scaling ----                                                     
 
 cli_progress_step("Fitting scaling model")
-set.seed(1111)
+set.seed(rseed)
 lsx_model <- textmodel_lss(
   tw_dfm,
   seeds = as.seedwords(as.list(seed)),
@@ -123,7 +150,7 @@ cohesion_plot <- LSX::cohesion(lsx_model) %>%
   theme(plot.margin = margin(0.2, 0.5, 0.2, 0.2, "cm"))
 ggsave("plots/cohesion.pdf", cohesion_plot, device = cairo_pdf)
 
-set.seed(1111)
+set.seed(rseed)
 lsx_model <- textmodel_lss(
   tw_dfm,
   seeds = as.seedwords(as.list(seed)),
@@ -174,18 +201,21 @@ pred <- predict(
   min_n = 4
 )
 
-density_plot <- ggplot(data.frame(fit = pred$fit)) +
-  geom_density(aes(x = fit), na.rm = TRUE, size = 1, color = "black", fill = "black", alpha = 0.5) +
-  geom_function(fun = dnorm, args = list(mean = 0, sd = 0.77), size = 1, color = "red") +
-  geom_function(fun = dnorm, args = list(mean = 0, sd = 1), size = 1, color = "green") +
-  geom_function(fun = dcauchy, args = list(location = 0, scale = 0.62), size = 1, color = "blue") +
-  theme_bw() +
-  labs(x = "Polarity estimate", y = "Density") +
-  scale_x_continuous(expand = c(0, 0))
-ggsave("plots/density.pdf", density_plot, device = cairo_pdf)
+# Plot density function
+dn <- plot_multiple_density(tw_dfm, seed, k = k, engine = "rsvd", seed = rseed)
+ggsave("plots/density.pdf", dn$density, device = cairo_pdf)
+
+# Plot normality test
+ad_plot <- ggplot(dn$normality) +
+  geom_smooth(aes(x, y = norm), size = 1, color = "black") +
+  geom_point(aes(x, y = norm), alpha = 0.2) +
+  labs(x = "Number of seedwords", y = "Anderson-Darling normality statistic") +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_bw()
+ggsave("plots/normality_plot.pdf", ad_plot, device = cairo_pdf)
 
 # Plot document polarity
-docscores_plot <- plot_docscores(pred, n = 1000, seed = 123)
+docscores_plot <- plot_docscores(pred, n = 1000, seed = rseed, zoom = c(-7.5, 7.5))
 ggsave("plots/doc_plot.pdf", docscores_plot, device = cairo_pdf)
 
 # Combine unique tweets with prediction results
@@ -210,7 +240,7 @@ tweets_ts <- tweets_pred %>%
               cumsum()) %>%
   st_drop_geometry() %>%
   mutate(tweet_day = as_date(tweet_time)) %>%
-  select(polarity, tweet_day, authors_agg) %>%
+  dplyr::select(polarity, tweet_day, authors_agg) %>%
   group_by(tweet_day) %>%
   summarise(polarity = mean(polarity, na.rm = TRUE), authors = max(authors_agg)) %>%
   mutate(authors = authors / max(authors))
@@ -232,9 +262,7 @@ ggsave("plots/timeseries.pdf", ts_plot, device = cairo_pdf)
 
 
 
-###############################################################################
-## Spatial analysis ----                                                     ##
-############################################################################### 
+#### Data aggregation ----                                                     
 
 # Download county boundaries
 cli_progress_step("Downloading boundaries")
@@ -260,6 +288,11 @@ if (bounds_needed) {
     group_by(gen) %>%
     mutate(ags = ags, gen = make_kreis_unique(gen)) %>%
     ungroup()
+  
+  coords <- kreise %>%
+    st_geometry() %>%
+    st_centroid() %>%
+    st_coordinates()
 }
 
 
@@ -271,6 +304,7 @@ tweets_pred_100 <- tweets_pred[abs(tweets_pred$polarity) >= 1,]
 # Aggregate polarity scores by authors to create a single polarity score
 # for each author
 # This takes a lot of time (~1-2 hours depending on number of cores used)
+# and strains the CPU
 tweets_by_author <- tweets_pred %>%
   as_tibble() %>%
   group_by(author_id) %>%
@@ -278,15 +312,7 @@ tweets_by_author <- tweets_pred %>%
 with_progress({
   p <- progressor(steps = length(unique(tweets_pred$author_id)))
   tweets_by_author <- tweets_by_author %>%
-    future_map_dfr(function(x) {
-      p()
-      tibble(
-        author = unique(x$author_id),
-        polarity = mean(x$polarity, na.rm = TRUE),
-        se = mean(x$se, na.rm = TRUE),
-        geometry = x$geometry[1]
-      )
-    }) %>%
+    future_map_dfr(aggregate_author) %>%
     st_as_sf() %>%
     st_set_crs(3035)
 })
@@ -299,15 +325,7 @@ tweets_by_author_25 <- tweets_pred_25 %>%
 with_progress({
   p <- progressor(steps = length(unique(tweets_pred_25$author_id)))
   tweets_by_author_25 <- tweets_by_author_25 %>%
-    future_map_dfr(function(x) {
-      p()
-      tibble(
-        author = unique(x$author_id),
-        polarity = mean(x$polarity, na.rm = TRUE),
-        se = mean(x$se, na.rm = TRUE),
-        geometry = x$geometry[1]
-      )
-    }) %>%
+    future_map_dfr(aggregate_author) %>%
     st_as_sf() %>%
     st_set_crs(3035)
 })
@@ -320,15 +338,7 @@ tweets_by_author_50 <- tweets_pred_50 %>%
 with_progress({
   p <- progressor(steps = length(unique(tweets_pred_50$author_id)))
   tweets_by_author_50 <- tweets_by_author_50 %>%
-    future_map_dfr(function(x) {
-      p()
-      tibble(
-        author = unique(x$author_id),
-        polarity = mean(x$polarity, na.rm = TRUE),
-        se = mean(x$se, na.rm = TRUE),
-        geometry = x$geometry[1]
-      )
-    }) %>%
+    future_map_dfr(aggregate_author) %>%
     st_as_sf() %>%
     st_set_crs(3035)
 })
@@ -341,20 +351,12 @@ tweets_by_author_100 <- tweets_pred_100 %>%
 with_progress({
   p <- progressor(steps = length(unique(tweets_pred_100$author_id)))
   tweets_by_author_100 <- tweets_by_author_100 %>%
-    future_map_dfr(function(x) {
-      p()
-      tibble(
-        author = unique(x$author_id),
-        polarity = mean(x$polarity, na.rm = TRUE),
-        se = mean(x$se, na.rm = TRUE),
-        geometry = x$geometry[1]
-      )
-    }) %>%
+    future_map_dfr(aggregate_author) %>%
     st_as_sf() %>%
     st_set_crs(3035)
 })
 
-# Aggregate data ----
+
 cli_progress_step("Aggregating polarity scores")
 kreise_polarity <- aggregate(
   tweets_by_author["polarity"],
@@ -415,19 +417,54 @@ kreise_polarity <- kreise_polarity %>%
   as_tibble() %>%
   st_as_sf()
 
-tmap_polarity <- tm_shape(kreise_polarity) +
+# Create baseline grid
+grid <- starsExtra::make_grid(tweets_by_author, 2500)
+
+# Interpolate polarity based on baseline grid
+polarity_grid <- gstat::idw(
+  polarity ~ 1,
+  location = na.omit(tweets_by_author[!abs(tweets_by_author$polarity) > 3.5, ]),
+  newdata = grid,
+  idp = 1.5
+) %>% st_crop(kreise)
+polarity_25_grid <- gstat::idw(
+  polarity ~ 1,
+  location = na.omit(tweets_by_author_25),
+  newdata = grid
+) %>% st_crop(kreise)
+polarity_50_grid <- gstat::idw(
+  polarity ~ 1,
+  location = na.omit(tweets_by_author_50),
+  newdata = grid
+) %>% st_crop(kreise)
+polarity_100_grid <- gstat::idw(
+  polarity ~ 1,
+  location = na.omit(tweets_by_author_100),
+  newdata = grid
+) %>% st_crop(kreise)
+
+# Map spatial distribution and distribution of counts
+tmap_polarity1 <- tm_shape(kreise) +
   tm_borders() +
-  tm_fill(col = "polarity", palette = "RdYlBu", style = "order", midpoint = 0, title = "Polarity estimates") +
-  tm_layout(frame = FALSE, legend.position = c("left", "bottom"))
-tmap_counts <- tm_shape(kreise_polarity) +
+  tm_shape(polarity_grid) +
+  tm_raster(col = "var1.pred", palette = "RdBu", style = "order", labels = c("Negative", "Mixed", "Positive"), midpoint = 0, title = "Polarity estimates") +
+  tm_layout(title.fontface = "bold", legend.format = "scientific", legend.height = 0.15, frame = FALSE, legend.position = c("left", "bottom"))
+tmap_polarity2 <- tm_shape(kreise) +
   tm_borders() +
-  tm_fill(col = "authors", palette = "PuBu", style = "log10", title = "Number of authors") +
+  tm_shape(kreise_polarity) +
+  tm_fill(col = "polarity", palette = "RdBu", style = "order", midpoint = 0, title = "Polarity estimates") +
+  tm_layout(title.fontface = "bold", legend.format = "scientific", legend.height = 0.15, frame = FALSE, legend.position = c("left", "bottom"))
+tmap_counts <- tm_shape(kreise) +
+  tm_borders() +
+  tm_shape(kreise_polarity) +
+  tm_fill(col = "authors", palette = "Blues", style = "log10", title = "Number of authors") +
   tm_scale_bar(position = c("RIGHT", "BOTTOM"), text.size = 0.5) +
   tm_compass(position = c(0.8, 0.08), size = 2.5) +
-  tm_layout(legend.format = "scientific", legend.height = 0.15, frame = FALSE, legend.position = c("left", "bottom"))
-tmap_stats <- tmap_arrange(tmap_polarity, tmap_counts, ncol = 2, asp = 0.5)
+  tm_layout(title.fontface = "bold", legend.format = "scientific", legend.height = 0.15, frame = FALSE, legend.position = c("left", "bottom"))
+tmap_stats <- tmap_arrange(tmap_polarity1, tmap_polarity2, tmap_counts, ncol = 3, asp = 0.5)
 tmap_save(tmap_stats, filename = "plots/polarity_map.pdf", device = cairo_pdf)
 
+# Map standard errors of polarity scores
 tmap_se <- tm_shape(kreise_polarity) +
   tm_borders() +
   tm_fill(col = "se", palette = "OrRd", style = "order", midpoint = 0, title = "Std. error") +
@@ -436,99 +473,148 @@ tmap_se <- tm_shape(kreise_polarity) +
   tm_layout(frame = FALSE, legend.position = c("left", "bottom"))
 tmap_save(tmap_se, filename = "plots/polarity_se_map.pdf", device = cairo_pdf)
 
-# Prepare local model ----
+
+
+## Context variable preparation ----
+
+# Read context data generated by read_context_bulk.R
 context <- read_feather("data/context/context.feather")
+
+# Plot kernel illustration
 kplot <- plot_kernels()
 ggsave("plots/kplot.pdf", kplot, device = cairo_pdf)
 
 # Prepare context variables and join them with polarity scores
 kreise_polarity_context <- kreise_polarity %>%
   left_join(context, by = "ags") %>%
-  select(where(~!all(is.na(.x)))) %>%
-  mutate(across(.fns = function(x) { # impute with global mean
-    if (any(is.na(x))) {
-      x[is.na(x)] <- mean(x, na.rm = TRUE)
-    }
-    x
-  }))
+  dplyr::select(where(~!all(is.na(.x)))) %>%
+  mutate(across(.fns = randomForest::na.roughfix)) # impute NA by median
 
+# Map distribution of context variables
 kreise_polarity_varsel <- kreise_polarity_context[names(var_sel)]
-ind_maps <- tm_shape(kreise_polarity_varsel) +
+ind_maps <- tm_shape(kreise) +
+  tm_borders() +
+  tm_shape(kreise_polarity_varsel) +
   tm_fill(
     names(var_sel),
     style = "order",
+    palette = "RdBu",
+    midpoint = 0,
     title = sel_eng[names(var_sel)]
   ) +
-  tm_layout(frame = FALSE, legend.position = c("LEFT", "TOP"), scale = 0.8) +
+  tm_layout(frame = FALSE, legend.position = c("LEFT", "TOP"), scale = 0.75) +
   tm_facets(ncol = 4)
 tmap_save(ind_maps, "plots/ind_maps.pdf", device = cairo_pdf)
 
-kreise_polarity_context <- kreise_polarity_context %>%
-  as_tibble()
+# Center and scale context variables
+kreise_polarity_context <- datawizard::standardize(kreise_polarity_context)
 
-kreise_polarity_context[
-  !names(kreise_polarity_context) %in% c(
-    "polarity", "polarity_25", "polarity_50", "polarity_100", "authors",
-    "place", "ags", "se", "geometry"
-  )
-] <-
-  kreise_polarity_context %>%
-  select(-c(
-    polarity, polarity_25, polarity_50, polarity_100, authors,
-    place, ags, se, geometry)
-  ) %>%
-  scale() %>%
-  as_tibble()
 
-kreise_polarity_context <- kreise_polarity_context %>%
-  st_as_sf()
 
-# Multi-level model ----
+## Multi-level model ----
+
 cli_alert_info("Linking district-level contextual variables to individual tweet authors")
 authors_context <- st_join(tweets_by_author, kreise_polarity_context[c("ags", names(var_sel))], st_within)
 authors_context_25 <- st_join(tweets_by_author_25, kreise_polarity_context[c("ags", names(var_sel))], st_within)
 authors_context_50 <- st_join(tweets_by_author_50, kreise_polarity_context[c("ags", names(var_sel))], st_within)
 authors_context_100 <- st_join(tweets_by_author_100, kreise_polarity_context[c("ags", names(var_sel))], st_within)
 
-formula_lmer <- as.formula(paste(
-  "polarity ~",
-  paste(paste(names(var_sel), "+ (1 +", names(var_sel), "| ags)" ), collapse = " + ")
-))
-formula_lmer_25 <- as.formula(paste(
-  "polarity_25 ~",
-  paste(paste(names(var_sel), "+ (1 +", names(var_sel), "| ags)" ), collapse = " + ")
-))
-formula_lmer_50 <- as.formula(paste(
-  "polarity_50 ~",
-  paste(paste(names(var_sel), "+ (1 +", names(var_sel), "| ags)" ), collapse = " + ")
-))
-formula_lmer_100 <- as.formula(paste(
-  "polarity_100 ~",
-  paste(paste(names(var_sel), "+ (1 +", names(var_sel), "| ags)" ), collapse = " + ")
-))
+# Construct formula containing fixed and random intercepts/slopes depending
+# on effects
+formula_lmer <- construct_mer_formula(
+  polarity                = "dependent",
+  industriequote          = c(intercept = "fixed",  slope = "fixed"),
+  kreative_klasse         = c(intercept = "fixed",  slope = "fixed"),
+  akademiker              = c(intercept = "random", slope = "random"),
+  erwerbstätige_primsek   = c(intercept = "random", slope = "random"),
+  unter_30                = c(intercept = "random", slope = "random"),
+  lebenserwartung         = c(intercept = "fixed",  slope = "fixed"),
+  pkwdichte               = c(intercept = "random", slope = "random"),
+  scenes                  = c(intercept = "random", slope = "random"),
+  stimmenanteile_afd      = c(intercept = "random", slope = "random"),
+  neuinanspruchnahme      = c(intercept = "random", slope = "random"),
+  städtebauförderung_kurz = c(intercept = "random", slope = "random"),
+  sachinvestitionen       = c(intercept = "fixed",  slope = "fixed"),
+  naturschutz             = c(intercept = "random", slope = "random"),
+  windkraft_pro_10000     = c(intercept = "random", slope = "random"),
+  überschwemmungsgefahr   = c(intercept = "random", slope = "random"),
+  erholungsfläche         = c(intercept = "random", slope = "random"),
+  grp = "ags",
+  data = authors_context
+)
 
+# Improve performance by selecting a fast model optimizer
 lmer_control <- lmerControl(
   calc.derivs = FALSE,
   optCtrl = list(algorithm = "NLOPT_LN_BOBYQA", iprint = 3)
 )
+
+# Fit multilevel models (takes around 300-1500 iterations each, ~40 minutes)
 iteration <- ""
 cli_alert_info("Starting multilevel modelling: Polarity")
 cli_progress_message("  {iteration}")
 mlmodel <- callr::r(
-  function(form, data, ...) {
-    lme4::lmer(form, data = data, verbose = 1, ...)
-  },
+  call_lmer,
   args = list(form = formula_lmer, data = authors_context, control = lmer_control),
   callback = lmer_callback,
   spinner = TRUE
 )
+mlmodel_25 <- callr::r(
+  call_lmer,
+  args = list(form = formula_lmer, data = authors_context_25, control = lmer_control),
+  callback = lmer_callback,
+  spinner = TRUE
+)
+mlmodel_50 <- callr::r(
+  call_lmer,
+  args = list(form = formula_lmer, data = authors_context_50, control = lmer_control),
+  callback = lmer_callback,
+  spinner = TRUE
+)
+mlmodel_100 <- callr::r(
+  call_lmer,
+  args = list(form = formula_lmer, data = authors_context_100, control = lmer_control),
+  callback = lmer_callback,
+  spinner = TRUE
+)
 
+# Plot exploratory effect ranges
+mlsim <- REsim(mlmodel_100, seed = rseed)
+all_caterpillars <- plotREsim(mlsim, sd = TRUE)
+ggsave("plots/all_er.pdf", all_caterpillars, device = cairo_pdf, height = 30)
 
+# Plot random effects of selected terms using adjusted function from effects.R
+good_caterpillars <- list()
+good_caterpillars[[1]] <- plotREsim(mlsim, facet = list(groupFctr = "ags", term = "(Intercept)"), sd = FALSE)
+good_caterpillars[[2]] <- plotREsim(mlsim, facet = list(groupFctr = "ags", term = "akademiker"), sd = FALSE)
+good_caterpillars[[3]] <- plotREsim(mlsim, facet = list(groupFctr = "ags", term = "scenes"), sd = FALSE)
+good_caterpillars[[4]] <- plotREsim(mlsim, facet = list(groupFctr = "ags", term = "städtebauförderung_kurz"), sd = FALSE)
+good_caterpillars[[5]] <- plotREsim(mlsim, facet = list(groupFctr = "ags", term = "unter_30"), sd = FALSE)
+good_caterpillars[[6]] <- plotREsim(mlsim, facet = list(groupFctr = "ags", term = "windkraft_pro_10000"), sd = FALSE)
+good_caterpillars <- arrangeGrob(grobs = good_caterpillars, ncol = 3, left = "Effect range", bottom = "Districts")
+ggsave("plots/effect_ranges.pdf", good_caterpillars, device = cairo_pdf)
 
-coords <- kreise %>%
-  st_geometry() %>%
-  st_centroid() %>%
-  st_coordinates()
+effect_plot <- plot_ci(mlmodel, bottom = FALSE) +
+  plot_ci(mlmodel_25, bottom = FALSE, left = FALSE) +
+  plot_ci(mlmodel_50) +
+  plot_ci(mlmodel_100, left = FALSE) +
+  plot_annotation(tag_levels = 1, tag_prefix = "(", tag_suffix = ")")
+ggsave("plots/ci_plot.pdf", effect_plot, device = cairo_pdf, width = 12)
+
+mlsimsf <- mlsim %>%
+  filter(term %in% c("akademiker", "scenes",
+                   "städtebauförderung_kurz", "unter_30", "windkraft_pro_10000")) %>%
+  left_join(kreise, by = c("groupID" = "ags")) %>%
+  st_as_sf() %>%
+  mutate(term = recode_values(term, as.list(setNames(names(sel_eng), sel_eng))))
+
+mlmap <- tm_shape(kreise) +
+  tm_borders() +
+  tm_shape(mlsimsf) +
+  tm_fill(col = "mean", palette = "PRGn", style = "jenks", midpoint = 0, title = "Estimate") +
+  tm_facets(by = "term", ncol = 3) +
+  tm_layout(asp = 0.8, outer.margins = c(-0.35, 0, -0.35, -0.15))
+tmap_save(mlmap, "plots/mlmap.pdf", device = cairo_pdf)
 
 # Construct a formula for regression modelling
 formula <- paste("polarity ~", paste(names(var_sel), collapse = " + ")) %>%

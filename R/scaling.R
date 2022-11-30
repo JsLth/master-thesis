@@ -1,4 +1,4 @@
-source("~/Masterarbeit/R/packages.R")
+source("R/packages.R")
 
 tfidf <- function(tweets, n) {
   if (!inherits(tweets, "dfm")) {
@@ -84,7 +84,8 @@ plot_docscores <- function(pred,
                            fatten = 3,
                            alpha = 0.3,
                            lwd = 0.3,
-                           na.rm = TRUE) {
+                           na.rm = TRUE,
+                           zoom = NULL) {
   fit <- pred$fit
   se <- pred$se.fit
   idx <- seq_along(fit)
@@ -101,7 +102,7 @@ plot_docscores <- function(pred,
   )
   
   ggplot(data = results, aes(x = reorder(x, fit), y = fit)) +
-    coord_flip() +
+    coord_flip(ylim = zoom) +
     geom_pointrange(aes(ymin = lower, ymax = upper), lwd = 0.3, alpha = 0.5, fatten = 3, na.rm = TRUE) +
     scale_x_discrete(labels = NULL, breaks = NULL) +
     xlab("Tweets") +
@@ -177,34 +178,49 @@ plot_multiple_density <- function(dfm, seeds, k, engine = "rsvd", seed = 1111) {
       engine = engine
     ))
     
-    pred <- predict(
+    p <- predict(
       m,
       newdata = dfm,
       rescaling = TRUE,
       min_n = 4
     )
+    
+    list(
+      fit = p,
+      norm = nortest::ad.test(p)$statistic
+    )
   })
   
-  pl <- ggplot()
+  pd <- ggplot()
   for (i in seq_along(pred)) {
-    p <- pred[[i]]
+    p <- pred[[i]]$fit
     best_fit <- i == length(pred)
     cl <- ifelse(best_fit, "black", "grey")
     sz <- ifelse(best_fit, 1, 0.5)
+    al <- ifelse(best_fit, 1, 0.7)
     
-    pl <- pl +
+    pd <- pd +
       geom_density(
         data = data.frame(fit = p),
         aes(x = fit),
         na.rm = TRUE,
         size = sz,
-        color = cl
+        color = cl,
+        alpha = al
       )
   }
-  
-  pl +
+
+  pd <- pd +
     geom_function(fun = dnorm, args = list(mean = 0, sd = 1), size = 1, color = "green") +
     theme_bw() +
     labs(x = "Polarity estimate", y = "Density") +
     scale_x_continuous(expand = c(0, 0))
+  
+  n <- sapply(pred, "[[", 2)
+  n <- data.frame(x = seq_along(n) * 2, norm = n)
+  
+  list(
+    density = pd,
+    normality = n
+  )
 }
