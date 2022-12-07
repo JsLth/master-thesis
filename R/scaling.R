@@ -95,15 +95,16 @@ plot_docscores <- function(pred,
   se <- se[s]
   
   results <- data.frame(
-    x = seq_along(s),
+    x = reorder(seq_along(s), fit),
     fit = fit,
     lower = fit - 1.96 * se,
     upper = fit + 1.96 * se
   )
   
-  ggplot(data = results, aes(x = reorder(x, fit), y = fit)) +
+  ggplot(data = results, aes(x = x, y = fit)) +
     coord_flip(ylim = zoom) +
-    geom_pointrange(aes(ymin = lower, ymax = upper), lwd = 0.3, alpha = 0.5, fatten = 3, na.rm = TRUE) +
+    geom_point2(color = "black", size = 1.3) +
+    ggrastr::rasterise(geom_linerange(aes(ymin = lower, ymax = upper), lwd = 0.2, alpha = 0.6, na.rm = TRUE), device = "cairo", dpi = 1000) +
     scale_x_discrete(labels = NULL, breaks = NULL) +
     xlab("Tweets") +
     ylab("Polarity") +
@@ -146,16 +147,16 @@ textplot_terms.textmodel_lss <- function(x, highlighted = NULL, max_words = 1000
   temp_black <- subset(temp, is_hl)
   temp_gray <- subset(temp, !is_hl & is_sm)
   ggplot(data = temp_gray, aes(x = beta, y = frequency, label = word)) +
-    geom_text(aes(alpha = abs(beta) * frequency), colour = "grey70") +
+    ggrastr::rasterise(geom_text(aes(alpha = abs(beta) * frequency), colour = "grey70", size = 3), dpi = 1000) +
     labs(x = "Polarity", y = "Frequency (log)") +
     scale_alpha(range = c(0.1, 1)) +
     theme_bw() +
     theme(panel.grid= element_blank(),
-          axis.title.x = element_text(margin = margin(t = 10, r = 0, b = 0, l = 0)),
-          axis.title.y = element_text(margin = margin(t = 0, r = 10, b = 0, l = 0)),
+          axis.title.x = element_text(margin = ggplot2::margin(t = 10, r = 0, b = 0, l = 0)),
+          axis.title.y = element_text(margin = ggplot2::margin(t = 0, r = 10, b = 0, l = 0)),
           legend.position="none") +
     ggrepel::geom_text_repel(data = temp_black, aes(x = beta, y = frequency, label = word),
-                    segment.size = 0.25, colour = "black") +
+                    segment.size = 0.25, colour = "black", size = 3) +
     geom_point(data = temp_black, aes(x = beta, y = frequency), cex = 0.7, colour = "black")
   
 }
@@ -196,8 +197,8 @@ plot_multiple_density <- function(dfm, seeds, k, engine = "rsvd", seed = 1111) {
     p <- pred[[i]]$fit
     best_fit <- i == length(pred)
     cl <- ifelse(best_fit, "black", "grey")
-    sz <- ifelse(best_fit, 1, 0.5)
-    al <- ifelse(best_fit, 1, 0.7)
+    sz <- ifelse(best_fit, 1, 0.2)
+    al <- ifelse(best_fit, 1, 0.5)
     
     pd <- pd +
       geom_density(

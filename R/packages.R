@@ -6,9 +6,11 @@ pkgs <- c(
   
   # I/O
   "httr2", "jsonlite", "ows4R", "readr", "arrow", "sfarrow", "osmextract",
+  "giscoR",
   
   # Data cleaning
   "emoji", "lubridate", "zoo", "xml2", "randomForest", "broom", "broom.mixed",
+  "tidytext",
   
   # Debugging and convenience
   "cli", "callr", "processx", "bench", "magrittr", "rlang", "retry", "R.utils",
@@ -18,17 +20,18 @@ pkgs <- c(
   "quanteda.textmodels", "LSX", "rsvd",
   
   # Geoprocessing
-  "sf", "sp",  "stars", "starsExtra",
+  "sf", "sp",  "stars", "starsExtra", "gstat",
   
   # Spatial statistics
-  "spdep", "spgwr", "GWmodel", "lme4", "merTools", "lmerTest",
+  "spdep", "spgwr", "GWmodel", "lme4", "merTools", "lmerTest", "nortest",
   
   # Visualization
-  "tmap", "ggpubr", "ggnewscale", "Cairo", "patchwork", "gridExtra",
-  "latex2exp", "extrafont", "classInt", "RColorBrewer", "pheatmap",
+  "tmap", "ggpubr", "ggnewscale", "Cairo", "patchwork", "gridExtra", "ggrastr",
+  "latex2exp", "extrafont", "classInt", "RColorBrewer", "pheatmap", "ggrepel",
   
   # LaTeX
   "kableExtra", "stargazer", "modelsummary", "huxtable", "flextable",
+  "ltxsparklines",
   
   # Parallelization
   "furrr", "multidplyr", "progressr"

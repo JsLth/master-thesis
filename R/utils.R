@@ -1,4 +1,5 @@
 source("R/packages.R")
+source("R/globals.R")
 
 remove_file_ext <- function(file) {
   ext <- paste0(".", tools::file_ext(file))
@@ -48,6 +49,11 @@ collected_geo <- function() {
     file.path(geo_path, .)
   
   collected[file.exists(collected)]
+}
+
+
+rename_vars <- function(x) {
+  dplyr::recode(x, !!!sel_eng)
 }
 
 
@@ -155,6 +161,9 @@ riffle <- function(a, b) {
 }
 
 
+empty_canvas <- function() ggplot() + theme_void()
+
+
 lmer_callback <- function(newout, proc) {
   if (str_detect(newout, "^ ?[0-9]+:")) {
     newout <- paste0("Iteration", str_split(newout, ":")[[1]][1])
@@ -171,8 +180,8 @@ aggregate_author <- function(x) {
   p()
   tibble(
     author = unique(x$author_id),
-    polarity = mean(x$polarity, na.rm = TRUE),
-    se = mean(x$se, na.rm = TRUE),
+    polarity = median(x$polarity, na.rm = TRUE),
+    se = median(x$se, na.rm = TRUE),
     geometry = x$geometry[1]
   )
 }
@@ -180,4 +189,9 @@ aggregate_author <- function(x) {
 
 call_lmer <- function(form, data, ...) {
   lme4::lmer(form, data = data, verbose = 1, ...)
+}
+
+
+call_blmer <- function(form, data, ...) {
+  blme::blmer(form, data = data, verbose = 1, ...)
 }

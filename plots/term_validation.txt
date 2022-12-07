@@ -1,0 +1,57 @@
+\begin{table}
+
+\caption{\label{tab:seedwords}Seedwords used as reference for semantic scaling together with their validation results. The reference column refers to the weight assigned to a keyword when included in the model. The estimate column shows the prediction of a seedword when excluded from the model. The error measures the squared distance between both values.}
+\centering
+\begin{tabular}[t]{lrr>{}rlrrr}
+\toprule
+\multicolumn{4}{c}{Hegemonic} & \multicolumn{4}{c}{Polemic} \\
+\cmidrule(l{3pt}r{3pt}){1-4} \cmidrule(l{3pt}r{3pt}){5-8}
+Seedword & Reference & Estimate & Error & Seedword & Reference & Estimate & Error\\
+\midrule
+klimakriseistjetzt & 0.07883 & 0.05303 & 0.00067 & klimahysterie & -0.10550 & -0.08208 & 0.00055\\
+klimakrise & 0.09973 & 0.07481 & 0.00062 & ökofaschisten & -0.13523 & -0.11152 & 0.00056\\
+klimakatastrophe & 0.13313 & 0.10896 & 0.00058 & öko & -0.04668 & -0.02202 & 0.00061\\
+klimagerechtigkeit & 0.17266 & 0.14961 & 0.00053 & öko- & -0.12839 & -0.10526 & 0.00054\\
+climatejustice & 0.17250 & 0.14942 & 0.00053 & ökoterroristen & -0.14126 & -0.11668 & 0.00060\\
+\addlinespace
+klimanotstand & 0.11621 & 0.09201 & 0.00059 & öko-terroristen & -0.16542 & -0.14072 & 0.00061\\
+climatecrisis & 0.22030 & 0.19814 & 0.00049 & klimaterroristen & -0.14751 & -0.12382 & 0.00056\\
+climateemergency & 0.19851 & 0.17380 & 0.00061 & klima-terroristen & -0.17577 & -0.15336 & 0.00050\\
+endfossilfuels & 0.16976 & 0.14630 & 0.00055 & klima-chaoten & -0.16234 & -0.13787 & 0.00060\\
+artenkollaps & 0.10891 & 0.08416 & 0.00061 & gruenermist & -0.10984 & -0.08520 & 0.00061\\
+\addlinespace
+artensterben & 0.17508 & 0.15453 & 0.00042 & grünermist & -0.09933 & -0.07533 & 0.00058\\
+artenschutz & 0.16786 & 0.14657 & 0.00045 & ideologie & -0.08920 & -0.06506 & 0.00058\\
+biodiversität & 0.09752 & 0.07428 & 0.00054 & ideologien & -0.11824 & -0.09342 & 0.00062\\
+biodiversitätskrise & 0.10421 & 0.08056 & 0.00056 & gruenesekte & -0.18577 & -0.16364 & 0.00049\\
+regenwald & 0.06086 & 0.03405 & 0.00072 & gruenekhmer & -0.15784 & -0.13517 & 0.00051\\
+\addlinespace
+artenvielfalt & 0.16275 & 0.14114 & 0.00047 & grueneninkompetenz & -0.13859 & -0.11425 & 0.00059\\
+naturschutz & 0.11423 & 0.09148 & 0.00052 & ideologisch & -0.13491 & -0.10977 & 0.00063\\
+umweltschutz & 0.06876 & 0.04290 & 0.00067 & freiheit & -0.02306 & 0.00454 & 0.00076\\
+umweltzerstörung & 0.13904 & 0.11541 & 0.00056 & ideologische & -0.12820 & -0.10390 & 0.00059\\
+klimastreik & 0.14159 & 0.11748 & 0.00058 & meinungsfreiheit & -0.14222 & -0.11849 & 0.00056\\
+\addlinespace
+fridaysforfuture & 0.11592 & 0.09192 & 0.00058 & linksgrüne & -0.13959 & -0.11586 & 0.00056\\
+hitzewelle & 0.08808 & 0.06296 & 0.00063 & linksgrünen & -0.15962 & -0.13715 & 0.00050\\
+wasserknappheit & 0.11850 & 0.09510 & 0.00055 & klimakleber & -0.15669 & -0.13328 & 0.00055\\
+wasserversorgung & 0.03982 & 0.01366 & 0.00068 & klima-kleber & -0.14265 & -0.11963 & 0.00053\\
+klimakollaps & 0.04891 & 0.02498 & 0.00057 & klima-klebern & -0.16097 & -0.13743 & 0.00055\\
+\addlinespace
+klimaapokalypse & 0.07918 & 0.05387 & 0.00064 & letztedegeneration & -0.09103 & -0.06669 & 0.00059\\
+climateaction & 0.19800 & 0.17582 & 0.00049 & woke & -0.14608 & -0.12271 & 0.00055\\
+climateactionnow & 0.14153 & 0.11767 & 0.00057 & woken & -0.11546 & -0.09223 & 0.00054\\
+climateendgame & 0.14574 & 0.11957 & 0.00069 & staatsfunk & -0.09249 & -0.06846 & 0.00058\\
+umweltkatastrophe & 0.13112 & 0.10680 & 0.00059 & klima-extremisten & -0.16339 & -0.14029 & 0.00053\\
+\addlinespace
+umweltverschmutzung & 0.08685 & 0.06101 & 0.00067 & öko-sozialismus & -0.10496 & -0.08146 & 0.00055\\
+klimazerstörung & 0.13522 & 0.11105 & 0.00058 & öko-faschisten & -0.11067 & -0.08504 & 0.00066\\
+waldsterben & 0.09282 & 0.06912 & 0.00056 & eigenverantwortung & -0.01814 & 0.00821 & 0.00069\\
+borkenkäfer & 0.09813 & 0.07785 & 0.00041 & indoktrination & -0.12576 & -0.10232 & 0.00055\\
+ressourcenverschwendung & 0.10792 & 0.08365 & 0.00059 & links-grüne & -0.10761 & -0.08294 & 0.00061\\
+\addlinespace
+insektensterben & 0.10468 & 0.08092 & 0.00056 & klima-sekte & -0.11376 & -0.08786 & 0.00067\\
+klimafolgen & 0.15454 & 0.13060 & 0.00057 & wohlstand & 0.00990 & 0.03460 & 0.00061\\
+\bottomrule
+\end{tabular}
+\end{table}

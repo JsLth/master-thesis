@@ -104,11 +104,20 @@ model_selection <- function(formula,
       bind_cols(exp_specs, .) %>%
       set_rownames(NULL)
     
-    kab <- kableExtra::kbl(modelselect_df, booktabs = TRUE, align = "c", linesep = "", format = "latex") %>%
+    kab <- kableExtra::kbl(
+      modelselect_df,
+      booktabs = TRUE,
+      align = "c",
+      linesep = "",
+      format = "latex",
+      caption = "Comparison of GWR model specifications. The results are grouped by bandwidth calibration technique (AIC or cross-validation),kernel function and kernel function type (fixed or adaptive).",
+      caption.short = "Comparison of GWR model specifications",
+      label = "specs"
+    ) %>%
       kableExtra::collapse_rows(1:3, row_group_label_position = "stack", valign = "top")
     
     opt_row <- modelselect_df %>%
-      select(Approach, Function, Kernel, all_of(diagnostic)) %>%
+      dplyr::select(Approach, Function, Kernel, all_of(diagnostic)) %>%
       slice_min(.[[diagnostic]]) %>%
       magrittr::extract(1, )
 
