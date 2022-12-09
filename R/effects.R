@@ -64,41 +64,35 @@ district_summary <- function(data, kreise, n = 20) {
     caption.short = "Summary statistics for the 20 most prevalent districts"
   ) %>%
     kable_paper(full_width = TRUE) %>%
-    str_remove_all("Städteregion|Landkreis")
+    str_remove_all("Städteregion|Landkreis|Region") %>%
+    str_replace(fixed("\\centering"), "\\centering\n\\scriptsize") %>%
+    str_replace(fixed("Frankfurt am Main"), "Frankf.a.M.")
 }
 
 
-plot_ci <- function(..., level = 0.95, cutoff = c(0.1, 0.05, 0.005), limits = c(-0.2, 0.2), bottom = TRUE, left = TRUE) {
+plot_ci <- function(..., level = 0.95, cutoff = c(0.1, 0.05, 0.005), limits = NULL, bottom = TRUE, left = TRUE) {
   models <- list(...)
   
   ci <- map_dfr(seq_along(models), function(i) {
     m <- models[[i]]
     if (inherits(m, "lm")) {
-      summ <- summary(m)
-      z.value <- qnorm((1 + level) / 2)
-      se <- summ$coefficients[, "Std. Error"]
-      coef <- summ$coefficients[, "Estimate"]
-      var_names <- sapply(rownames(summ$coefficients), function(x) {
-        if (x %in% names(sel_eng)) {
-          sel_eng[[x]]
-        } else x
-      })
+      summ <- broom::tidy(m, conf.int = TRUE)
+      var_names <- c("(Intercept)" = "(Intercept)", sel_eng)[summ$term]
       
       ci <- tibble(
-        variable = factor(var_names, levels = var_names),
-        coef = coef,
-        lower = coef - z.value * se,
-        upper = coef + z.value * se,
-        sig = pvalue_stars(p = summ$coefficients[, "Pr(>|t|)"], left_align = TRUE)
+        variable = factor(var_names, levels = rev(var_names)),
+        coef = summ$estimate,
+        lower = summ$conf.low,
+        upper = summ$conf.high,
+        sig = pvalue_stars(p = summ$p.value, left_align = TRUE)
       )
     } else if (inherits(m, "lmerMod")) {
       summ <- broom.mixed::tidy(m, conf.int = TRUE, effects = "fixed")
       p_val <- parameters::p_value_betwithin(m)$p
-      coef <- summ$estimate
       var_names <- c("(Intercept)" = "(Intercept)", sel_eng)[summ$term]
       ci <- tibble(
         variable = factor(var_names, levels = rev(var_names)),
-        coef = coef,
+        coef = summ$estimate,
         lower = summ$conf.low,
         upper = summ$conf.high,
         sig = pvalue_stars(p = p_val, left_align = TRUE)
@@ -108,13 +102,17 @@ plot_ci <- function(..., level = 0.95, cutoff = c(0.1, 0.05, 0.005), limits = c(
     ci %>% mutate(model = paste("Model", i))
   })
 
-  
-  mar <- limits %>%
+  base_range <- if (is.null(limits)) {
+    c(min(ci$lower), max(ci$upper))
+  } else {
+    limits
+  }
+  mar <- range(base_range[1], base_range[2]) %>%
     as.list() %>%
     do.call(subtract, .) %>%
     abs() %>%
     {. - (0.97 * .)}
-  
+
   ggplot(ci, aes(x = variable)) +
     geom_point(aes(y = coef), size = 2) +
     geom_errorbar(aes(y = coef, ymin = lower, ymax = upper), width = 0.25) +
@@ -122,7 +120,7 @@ plot_ci <- function(..., level = 0.95, cutoff = c(0.1, 0.05, 0.005), limits = c(
     geom_text(aes(y = upper + mar, label = sig), na.rm = TRUE) +
     theme_bw() +
     labs(y = if (left) "Estimate" else NULL, x = NULL) +
-    scale_y_continuous(limits = limits, labels = if (left) \(x) x else NULL) +
+    scale_y_continuous(labels = if (left) \(x) x else NULL) +
     scale_x_discrete(labels = if (bottom) \(x) x else NULL) +
     facet_wrap(~model, ncol = 2) +
     theme(
@@ -132,7 +130,7 @@ plot_ci <- function(..., level = 0.95, cutoff = c(0.1, 0.05, 0.005), limits = c(
       strip.background = element_blank(),
       strip.text = element_text(size = 14, face = "bold")
     ) +
-    coord_flip()
+    coord_flip(ylim = limits)
 }
 
 
@@ -281,4 +279,115 @@ construct_mer_formula <- function(..., data, grp = NULL) {
   }
 
   as.formula(form)
+}
+
+
+plot_vif <- function(..., colors = c("#3aaf85", "#1b6ca8", "#cd201f"), size_point = 4, size_line = 0.8) {
+  dots <- list(...)
+  dat <- map_dfr(seq_along(dots), function(i) {
+    m <- dots[[i]]
+    
+    as.data.frame(check_collinearity(m)) %>%
+      bind_cols(Component = paste("Model", i)) %>%
+      mutate(Term = factor(Term, levels = rev(names(var_sel))) %>% dplyr::recode(!!!sel_eng))
+  })
+  ci_data <- TRUE
+  dat$group <- "low"
+  dat$group[dat$VIF >= 5 & dat$VIF < 10] <- "moderate"
+  dat$group[dat$VIF >= 10] <- "high"
+  dat <- datawizard::data_rename(
+    dat,
+    pattern = c("Term", "VIF", "SE_factor", "Component"),
+    replacement = c("x", "y", "se", "facet")
+  )
+  
+  if (insight::n_unique(dat$facet) <= 1) {
+    dat$facet <- NULL
+  }
+  
+  ylim <- ceiling(max(dat$y, na.rm = TRUE))
+  xlim <- nrow(dat)
+  
+  if (ylim < 10) ylim <- 10
+  
+  dat$group <- factor(dat$group, levels = c("low", "moderate", "high"))
+  levels(dat$group) <- c("Low (< 5)", "Moderate (< 10)", "High (≥ 10)")
+  names(colors) <- c("Low (< 5)", "Moderate (< 10)", "High (≥ 10)")
+  
+  p <- ggplot2::ggplot(dat) + 
+    ggplot2::aes(
+      x = .data$x,
+      y = .data$y,
+      color = .data$group,
+      ymin = .data$VIF_CI_low,
+      ymax = .data$VIF_CI_high
+    ) + 
+    ggplot2::annotate(
+      geom = "rect", xmin = -Inf, xmax = Inf, 
+      ymin = 1, ymax = 5, fill = colors[1], color = NA, 
+      alpha = 0.15) +
+    ggplot2::annotate(
+      geom = "rect",
+      xmin = -Inf,
+      xmax = Inf,
+      ymin = 5,
+      ymax = 10,
+      fill = colors[2],
+      color = NA,
+      alpha = 0.15
+    ) +
+    ggplot2::annotate(
+      geom = "rect", 
+      xmin = -Inf, xmax = Inf, ymin = 10, ymax = Inf, fill = colors[3], 
+      color = NA, alpha = 0.15) +
+    {
+      if (!is.null(ci_data)) {
+        list(
+          ggplot2::geom_linerange(size = size_line),
+          ggplot2::geom_segment(
+            data = dat[dat$VIF_CI_high >  ylim * 1.15, ],
+            mapping = aes(
+              x = .data$x,
+              xend = .data$x,
+              y = .data$y,
+              yend = .data$VIF_CI_high
+            ),
+            lineend = "round", 
+            linejoin = "round",
+            arrow = ggplot2::arrow(
+              ends = "last",
+              type = "closed",
+              angle = 20,
+              length = ggplot2::unit(0.03, "native")
+            ),
+          show.legend = FALSE)
+        )
+      }
+    } +
+    see::geom_point2(size = size_point) +
+    ggplot2::labs(x = NULL, y = "VIF") +
+    ggplot2::scale_color_manual(
+      values = colors,
+      aesthetics = c("color", "fill"),
+      guide = ggplot2::guide_legend(title = NULL),
+      drop = FALSE
+    ) +
+    theme_bw(base_size = 10) + 
+    ggplot2::scale_y_continuous(
+      limits = c(1, ylim * 1.15), 
+      oob = scales::oob_squish, trans = "log10", expand = c(0, 0),
+      breaks = scales::log_breaks(n = 7, base = 10)
+    ) + 
+    ggplot2::scale_x_discrete() +
+    ggplot2::theme(
+      legend.position = "bottom",
+      legend.margin = ggplot2::margin(0, 0, 0, 0),
+      legend.box.margin = ggplot2::margin(-5, -5, -5, -5),
+      strip.background = element_blank(),
+      strip.text = element_text(size = 14, face = "bold")
+    )
+  if ("facet" %in% colnames(dat)) {
+    p <- p + ggplot2::facet_wrap(~facet, ncol = 2, scales = "fixed")
+  }
+  p + coord_flip()
 }

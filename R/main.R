@@ -40,6 +40,51 @@ workers <- round(availableCores() * 0.8, 0)
 plan(multisession, workers = workers)
 
 
+# Create LaTeX table for package overview
+data.frame(
+  Software = c(
+    "R Programming Language", "Photon", "\\texttt{Tidyverse}", "\\texttt{httr2}",
+    "\\texttt{sf}", "\\texttt{quanteda}", "\\texttt{LSX}", "\\texttt{rsvd}",
+    "\\texttt{lme4}", "\\texttt{GWmodel}"
+  ),
+  Use = c(
+    "Statistical software and programming environment that is used for all tasks concerning data collection, manipulation, processing and analysis.",
+    "Java-based geocoder that is based on OpenStreetMap data. Used to geocode the entirety of collected tweets.",
+    "R framework for general data manipulation. Used in all steps of data analysis.",
+    "R Package to build, test and repeatedly perform calls to both Photon and the Twitter API",
+    "R package for GIS-based analyses that is build upon classic geospatial libraries like GDAL and S2. Used for all manipulation and analyses of geographical data.",
+    "R framework for the analysis of textual data. Used for preparation, cleaning and exploration of document-feature matrices.",
+    "R package that implements \\posscite{Watanabe2021} Latent Semantic Scaling.",
+    "R package that implements \\posscite{Halko2011} randomized matrix decomposition.",
+    "R package for fitting and analyzing mixed-effect models",
+    "R package that implements geographically weighted models. Used for model selection and implementation."
+  ),
+  Citation = c(
+    "\\cite{R2022}",
+    "\\cite{Komoot2022}",
+    "\\cite{Wickham2019}",
+    "\\cite{Wickham2022}",
+    "\\cite{Pebesma2018}",
+    "\\cite{Benoit2018}",
+    "\\cite{Watanabe2022}",
+    "\\cite{Erichson2019}",
+    "\\cite{Bates2015}",
+    "\\cite{Gollini2015}"
+  )
+) %>%
+  kbl(
+    format = "latex",
+    escape = FALSE,
+    booktabs = TRUE,
+    align = "l",
+    caption = "List of key software packages that are applied in this work",
+    label = "software"
+  ) %>%
+  kable_paper() %>%
+  str_replace_all("tabular", "tabularx") %>%
+  str_replace(fixed("[t]{lll}"), "{\\textwidth}{lXl}") %>%
+  cat(file = "plots/software.tex")
+
 #### Tweet preparation ----                                                     
 
 compile_tweets <- TRUE
@@ -477,14 +522,35 @@ ind_maps <- tm_shape(kreise) +
     midpoint = 0,
     title = sel_eng[names(var_sel)]
   ) +
-  tm_layout(frame = FALSE, legend.position = c("LEFT", "TOP"), scale = 0.75) +
+  tm_layout(
+    frame = FALSE,
+    legend.position = c(0, 0.85),
+    scale = 0.75,
+    legend.title.fontface = "bold",
+    legend.title.size = 1.2) +
   tm_facets(ncol = 4)
-tmap_save(ind_maps, "plots/ind_maps.pdf", device = cairo_pdf)
+tmap_save(ind_maps, "plots/ind_maps.png", device = png)
 
 # Center and scale context variables
 kreise_polarity_context <- datawizard::standardize(kreise_polarity_context)
 
-
+kableExtra::kbl(
+  var_sel_latex,
+  format = "latex",
+  row.names = FALSE,
+  caption = "Overview and descriptions of the 16 independent variables included in the statistical models",
+  label = "indep",
+  booktabs = TRUE,
+  escape = FALSE,
+  align = c("l", "X", "l", "l")
+) %>%
+  kable_paper() %>%
+  str_replace(fixed("{table}"), "{table}\n\\begin{minipage}{\\textwidth}") %>%
+  str_replace(fixed("\\end{table}"), "\\end{minipage}\n\\end{table}") %>%
+  str_replace(fixed("\\centering"), "\\centering\n\\footnotesize") %>%
+  str_replace_all(fixed("tabular"), "tabularx") %>%
+  str_replace(fixed("[t]"), "{\\textwidth}") %>%
+  cat(file = "plots/variables.tex")
 
 ## Multi-level model ----
 
@@ -520,8 +586,7 @@ formula_lmer_max <- construct_mer_formula(
   data = authors_context
 )
 
-formula_lmer <- construct_mer_formula(
-  polarity                = "dependent",
+random_structure <- list(
   industriequote          = c(intercept = "random", slope = "fixed"),
   kreative_klasse         = c(intercept = "fixed",  slope = "fixed"),
   akademiker              = c(intercept = "fixed",  slope = "fixed"),
@@ -537,13 +602,17 @@ formula_lmer <- construct_mer_formula(
   naturschutz             = c(intercept = "fixed",  slope = "fixed"),
   windkraft_pro_10000     = c(intercept = "fixed",  slope = "random"),
   überschwemmungsgefahr   = c(intercept = "fixed",  slope = "fixed"),
-  erholungsfläche         = c(intercept = "fixed",  slope = "fixed"),
-  grp = "ags",
-  data = authors_context
+  erholungsfläche         = c(intercept = "fixed",  slope = "fixed")
 )
 
-formula_lmer_25 <- construct_mer_formula(
-  polarity                = "dependent",
+formula_lmer <- inject(construct_mer_formula(
+  polarity = "dependent",
+  !!!random_structure,
+  grp = "ags",
+  data = authors_context)
+)
+
+random_structure_25 <- list(
   industriequote          = c(intercept = "fixed",  slope = "random"),
   kreative_klasse         = c(intercept = "random", slope = "fixed"),
   akademiker              = c(intercept = "fixed",  slope = "fixed"),
@@ -559,13 +628,17 @@ formula_lmer_25 <- construct_mer_formula(
   naturschutz             = c(intercept = "fixed",  slope = "fixed"),
   windkraft_pro_10000     = c(intercept = "fixed",  slope = "random"),
   überschwemmungsgefahr   = c(intercept = "fixed",  slope = "fixed"),
-  erholungsfläche         = c(intercept = "fixed",  slope = "fixed"),
-  grp = "ags",
-  data = authors_context
+  erholungsfläche         = c(intercept = "fixed",  slope = "fixed")
 )
 
-formula_lmer_50 <- construct_mer_formula(
-  polarity                = "dependent",
+formula_lmer_25 <- inject(construct_mer_formula(
+  polarity = "dependent",
+  !!!random_structure_25,
+  grp = "ags",
+  data = authors_context
+))
+
+random_structure_50 <- list(
   industriequote          = c(intercept = "fixed",  slope = "fixed"),
   kreative_klasse         = c(intercept = "fixed",  slope = "fixed"),
   akademiker              = c(intercept = "fixed",  slope = "fixed"),
@@ -581,13 +654,17 @@ formula_lmer_50 <- construct_mer_formula(
   naturschutz             = c(intercept = "fixed",  slope = "fixed"),
   windkraft_pro_10000     = c(intercept = "fixed",  slope = "fixed"),
   überschwemmungsgefahr   = c(intercept = "fixed",  slope = "fixed"),
-  erholungsfläche         = c(intercept = "fixed",  slope = "fixed"),
-  grp = "ags",
-  data = authors_context
+  erholungsfläche         = c(intercept = "fixed",  slope = "fixed")
 )
 
-formula_lmer_100 <- construct_mer_formula(
-  polarity                = "dependent",
+formula_lmer_50 <- inject(construct_mer_formula(
+  polarity = "dependent",
+  !!!random_structure_50,
+  grp = "ags",
+  data = authors_context
+))
+
+random_structure_100 <- list(
   industriequote          = c(intercept = "fixed",  slope = "fixed"),
   kreative_klasse         = c(intercept = "fixed",  slope = "random"),
   akademiker              = c(intercept = "fixed",  slope = "fixed"),
@@ -603,15 +680,51 @@ formula_lmer_100 <- construct_mer_formula(
   naturschutz             = c(intercept = "fixed",  slope = "fixed"),
   windkraft_pro_10000     = c(intercept = "fixed",  slope = "random"),
   überschwemmungsgefahr   = c(intercept = "fixed",  slope = "fixed"),
-  erholungsfläche         = c(intercept = "fixed",  slope = "fixed"),
-  grp = "ags",
-  data = authors_context
+  erholungsfläche         = c(intercept = "fixed",  slope = "fixed")
 )
 
-# Improve performance by selecting a fast model optimizer
-lmer_control <- lmerControl(optCtrl = list(algorithm = "NLOPT_LN_BOBYQA", iprint = 3))
+formula_lmer_100 <- inject(construct_mer_formula(
+  polarity = "dependent",
+  !!!random_structure_100,
+  grp = "ags",
+  data = authors_context
+))
 
-# Fit multilevel models (takes around 300-1500 iterations each, ~40 minutes)
+# Create LaTeX output for random structure
+bind_cols(
+  bind_rows(random_structure),
+  bind_rows(random_structure_25),
+  bind_rows(random_structure_50),
+  bind_rows(random_structure_100),
+  .name_repair = quiet_name_repair
+) %>%
+  mutate(across(.fns = ~ifelse(.x == "random", "$\\times$", ""))) %>%
+  bind_cols(Variable = sel_eng[names(var_sel)], ., .name_repair = quiet_name_repair) %>%
+  set_colnames(c("", riffle(rep("I", 4), rep("S", 4)))) %>%
+  kbl(
+    escape = FALSE,
+    format = "latex",
+    booktabs = TRUE,
+    align = c("l", "c", "c", "c", "c", "c", "c", "c", "c"),
+    caption = "Final random structure employed for multilevel modelling. A cross signifies that intercept and/or slope vary across districts.",
+    caption.short = "Final random structured employed for multilevel modelling",
+    linesep = "",
+    label = "random_structure"
+  ) %>%
+  kable_styling() %>%
+  column_spec(c(1, 3, 5, 7, 9), border_right = TRUE) %>%
+  #collapse_rows(1, latex_hline = "major") %>%
+  footnote("I = Intercept, S = Slope", footnote_as_chunk = TRUE, fixed_small_size = TRUE) %>%
+  add_header_above(c(" " = 1, "Model 1" = 2, "Model 2" = 2, "Model 3" = 2, "Model 4" = 2)) %>%
+  cat(file = "plots/random_structure.tex")
+
+# Improve performance by selecting a fast model optimizer
+lmer_control <- lmerControl(
+  calc.derivs = FALSE,
+  optCtrl = list(algorithm = "NLOPT_LN_BOBYQA", iprint = 3)
+)
+
+# Fit multilevel models (takes around 50-300 iterations each)
 iteration <- ""
 cli_alert_info("Starting multilevel modelling: Polarity")
 cli_progress_message("  {iteration}")
@@ -647,17 +760,16 @@ mlmodel_100 <- callr::r(
   spinner = TRUE
 )
 
+# Create LaTeX output for multilevel model
 mlsum_list <- modelsummary(
   models = c(mlmodel, mlmodel_25, mlmodel_50, mlmodel_100),
   output = "modelsummary_list",
   effects = "fixed"
 )
-
 mlsum_list$`Model 1`$tidy$p.value <- p_value_betwithin(mlmodel)$p
 mlsum_list$`Model 2`$tidy$p.value <- p_value_betwithin(mlmodel_25)$p
 mlsum_list$`Model 3`$tidy$p.value <- p_value_betwithin(mlmodel_50)$p
 mlsum_list$`Model 4`$tidy$p.value <- p_value_betwithin(mlmodel_100)$p
-
 gm <- data.frame(
   raw = c("nobs", "r2.marginal", "r2.conditional", "aic", "bic", "rmse"),
   clean = c("Num. Obs.", "R2 Marginal", "R2 Conditional", "AIC", "BIC", "RMSE"),
@@ -677,10 +789,11 @@ modelsummary(
   title = "Fixed effect sizes and standard errors of the multilevel regression models. Additional goodness-of-fit measures are provided for model comparison.",
   caption.short = "Fixed effects of the multilevel regression models",
   label = "multilevel",
-  notes = "$^{*}$p$<$0.1; $^{**}$p$<$0.05; $^{***}$p$<$0.01",
+  #notes = "$^{*}$p$<$0.1; $^{**}$p$<$0.05; $^{***}$p$<$0.01",
   booktabs = TRUE,
   escape = FALSE
 ) %>%
+  footnote("$^{*}$p$<$0.1; $^{**}$p$<$0.05; $^{***}$p$<$0.01", escape = FALSE, footnote_as_chunk = TRUE) %>%
   add_header_above(c(" ", "Model specification" = 4)) %>%
   kable_paper() %>%
   cat(file = "plots/multilevel_tab.tex")
@@ -695,7 +808,7 @@ mlterms_25 <- setdiff(unique(mlsim_25$term), "(Intercept)")
 mlterms_50 <- setdiff(unique(mlsim_50$term), "(Intercept)")
 mlterms_100 <- setdiff(unique(mlsim_100$term), "(Intercept)")
 
-# Plot random effects of selected terms using adjusted function from effects.R
+# Plot random effects of selected terms
 caterpillars <- dotplot(
   data = list(mlsim, mlsim_25, mlsim_50, mlsim_100),
   group = "ags",
@@ -704,16 +817,14 @@ caterpillars <- dotplot(
 )
 ggsave("plots/effect_ranges.pdf", caterpillars, device = cairo_pdf, height = 10)
 
-ci_plot <- plot_ci(mlmodel, mlmodel_25, mlmodel_50, mlmodel_100)
-ggsave("plots/ci_plot.pdf", ci_plot, device = cairo_pdf, height = 8, width = 12)
+# Plot fixed effects
+ci_plot <- plot_ci(mlmodel, mlmodel_25, mlmodel_50, mlmodel_100, limits = c(-0.1, 0.2))
+ggsave("plots/ci_plot.pdf", ci_plot, device = cairo_pdf, height = 7, width = 10)
 
-effect_plot <- plot_ci(mlmodel, left = FALSE) +
-  plot_ci(mlmodel_25, left = FALSE, bottom = FALSE) +
-  plot_ci(mlmodel_50) +
-  plot_ci(mlmodel_100, bottom = FALSE) +
-  plot_annotation(tag_levels = 1, tag_prefix = "(", tag_suffix = ")")
-ggsave("plots/ci_plot.pdf", effect_plot, device = cairo_pdf, height = 8)
+vif_plot <- plot_vif(mlmodel, mlmodel_25, mlmodel_50, mlmodel_100)
+ggsave("plots/vif_plot.pdf", vif_plot, device = cairo_pdf, height = 8, width = 8)
 
+# Map random effects
 mlsimsf <- mlsim %>%
   filter(term %in% mlterms) %>%
   left_join(kreise, by = c("groupID" = "ags")) %>%
@@ -738,17 +849,23 @@ mlsimsf_100 <- mlsim_100 %>%
   mutate(model = "Model 4") %>%
   st_as_sf() %>%
   mutate(term = recode(term, !!!sel_eng))
-mlsimsf <- bind_rows(mlsimsf, mlsimsf_25, mlsimsf_50, mlsimsf_100)
 
-mlmap <- tm_shape(kreise) +
+mlmap <- tm_shape(st_union(kreise)) +
   tm_borders() +
   tm_shape(mlsimsf_100) +
-  tm_fill(col = "mean", palette = "PRGn", style = "fisher", midpoint = 0, title = "Estimate") +
-  tm_facets(by = c("term"), ncol = 3) +
-  tm_layout(asp = 0.8, outer.margins = c(-0.35, 0, -0.35, -0.15))
+  tm_fill(col = "mean", palette = "PRGn", style = "order", midpoint = 0, title = "Coefficient") +
+  tm_facets(by = c("term"), ncol = 3, free.scales.fill = FALSE) +
+  tm_compass(position = c(0.83, 0.06)) +
+  tm_scale_bar(text.size = 0.35, width = 0.2, position = c("RIGHT", "BOTTOM")) +
+  tm_layout(
+    asp = 0.8,
+    outer.margins = c(-0.35, 0, -0.35, -0.15),
+    panel.label.bg.color = NA,
+    panel.label.fontface = "bold"
+  )
 tmap_save(mlmap, "plots/mlmap.pdf", device = cairo_pdf)
 
-# Construct a formula for regression modelling
+# Construct a formula for aggregated regression modelling
 formula <- paste("polarity ~", paste(names(var_sel), collapse = " + ")) %>%
   as.formula()
 formula_25 <- paste("polarity_25 ~", paste(names(var_sel), collapse = " + ")) %>%
@@ -758,60 +875,24 @@ formula_50 <- paste("polarity_50 ~", paste(names(var_sel), collapse = " + ")) %>
 formula_100 <- paste("polarity_100 ~", paste(names(var_sel), collapse = " + ")) %>%
   as.formula()
 
+# Fit global aggregated OLS models
 global_model <- lm(formula, kreise_polarity_context)
 global_model_25 <- lm(formula_25, kreise_polarity_context)
 global_model_50 <- lm(formula_50, kreise_polarity_context)
 global_model_100 <- lm(formula_100, kreise_polarity_context)
 
-# LaTeX output for global model
-stargazer(
-  global_model, global_model_25, global_model_50, global_model_100,
-  type = "latex",
-  style = "all2",
-  dep.var.labels = c("Polarity", "Polarity >= 0.25", "Polarity >= 0.5", "Polarity >= 1"),
-  align = TRUE,
-  covariate.labels = sel_eng[names(var_sel)],
-  df = FALSE,
-  ci = TRUE,
-  font.size = "footnotesize",
-  label = "tab:global",
-  title = "Global OLS regression results taking into account (1) all polarity estimates, (2) polarity estimates >= 0.5, and (3) polarity estimates >= 1"
-) %>%
-  paste(collapse = "\n") %>%
-  str_remove_all("\\(p = 0\\.0+\\)") %>%
-  cat()
+stargazer(global_model, global_model_25, global_model_50, global_model_100, type = "text")
 
-ci_plot <- plot_ci(global_model, bottom = FALSE) +
-  plot_ci(global_model_25, left = FALSE, bottom = FALSE) +
-  plot_ci(global_model_50) +
-  plot_ci(global_model_100, left = FALSE) +
-  patchwork::plot_annotation(tag_levels = 1, tag_prefix = "(", tag_suffix = ")") +
-  patchwork::plot_layout(ncol = 2)
-ggsave("plots/ci_plot.pdf", ci_plot, device = cairo_pdf)
+# Effect plot for global model
+ci_plot_global <- plot_ci(global_model, global_model_25, global_model_50, global_model_100)
+ggsave("plots/ci_plot_global.pdf", ci_plot_global, device = cairo_pdf, height = 7, width = 10)
 
 kreise_residuals <- cbind(kreise, residuals(global_model_25))
-
-# Create neighborhood structure and spatial weight matrix
-kreise_nb <- poly2nb(
-  st_geometry(kreise),
-  row.names = kreise$gen,
-  queen = TRUE
-)
-
-# Apply S coding to account for edge effects of variance and activate zero
-# policy because some islands don't have neighbors
-kreise_listw <- nb2listw(kreise_nb, style = "B", zero.policy = TRUE)
-
-global_specs <- sapply(c("polarity", names(var_sel)), function(x) {
-  m <- moran.test(kreise_polarity_context[[x]], kreise_listw, zero.policy = TRUE)
-  est <- pvalue_stars(round(m$estimate["Moran I statistic"], 5), m$p.value)
-
-}) %>%
-  bind_cols("Moran's I" = ., VIF = c("", round(car::vif(global_model), 2)))
 
 # Convert to sp object
 kreise_polarity_context_sp <- as_Spatial(st_as_sf(kreise_polarity_context))
 
+# Try out all model combinations and select the one with best diagnostics
 msel <- model_selection(
   formula_50,
   data = kreise_polarity_context,
@@ -829,24 +910,72 @@ kernel <- tolower(unname(msel$solution["func"]))
 # Multi-scale model ----
 invisible(captureOutput(
   msgwr_model <- gwr.multiscale(
+    formula,
+    data = kreise_polarity_context_sp,
+    kernel = kernel,
+    adaptive = adaptive,
+    criterion = "dCVR"
+  ) %>%
+    repair_msgwr()
+))
+
+invisible(captureOutput(
+  msgwr_model_25 <- gwr.multiscale(
+    formula_25,
+    data = kreise_polarity_context_sp,
+    kernel = kernel,
+    adaptive = adaptive,
+    criterion = "dCVR"
+  ) %>%
+    repair_msgwr()
+))
+
+invisible(captureOutput(
+  msgwr_model_50 <- gwr.multiscale(
     formula_50,
     data = kreise_polarity_context_sp,
     kernel = kernel,
     adaptive = adaptive,
     criterion = "dCVR"
-  )
+  ) %>%
+    repair_msgwr()
 ))
 
-names(msgwr_model)[5] <- "bw"
-row.names(msgwr_model$bw) <- NULL
-msgwr_sf <- st_as_sf(msgwr_model$SDF)
-msgwr_model$bw <- msgwr_model$bw[nrow(msgwr_model$bw), ]
-names(msgwr_model$bw) <- c("Intercept", names(var_sel))
-global_specs <- bind_cols(
-  Variable = c("Intercept", sel_eng[names(var_sel)]),
-  global_specs,
-  Bandwidth = paste0(round(msgwr_model$bw, 0), ifelse(adaptive, "", "m"))
-)
+invisible(captureOutput(
+  msgwr_model_100 <- gwr.multiscale(
+    formula_100,
+    data = kreise_polarity_context_sp,
+    kernel = kernel,
+    adaptive = adaptive,
+    criterion = "dCVR"
+  ) %>%
+    repair_msgwr()
+))
+
+msbw <- data.frame(
+  model_1 = msgwr_model$bw,
+  model_2 = msgwr_model_25$bw,
+  model_3 = msgwr_model_50$bw,
+  model_4 = msgwr_model_100$bw
+) %>%
+  bind_cols(var = row.names(.), .) %>%
+  set_rownames(NULL)
+  
+kbl(
+  dplyr::recode(msbw$var, !!!c(Intercept = "(Intercept)", sel_eng)),
+  format = "latex",
+  row.names = FALSE,
+  col.names = c("", "Model 1", "Model 2", "Model 3", "Model 4"),
+  booktabs = TRUE,
+  align = c("l", "c", "c", "c"),
+  caption = "Adaptive multi-scale bandwidth sizes estimated by fitting an MSGWR model with an exponential kernel. Low bandwidth sizes indicate spatial non-stationarity.",
+  caption.short = "Adaptive multi-scale bandwidth sizes",
+  label = "msbw"
+) %>%
+add_header_above(c(" " = 1, "Bandwidth sizes" = 4)) %>%
+cat(file = "plots/bandwidths.tex")
+
+msgwr_sf <- st_as_sf(msgwr_model_50$SDF)
 
 stargazer(
   global_specs,
@@ -878,7 +1007,7 @@ bw <- bw.gwr(
 )
 
 gwr_model <- gwr.basic(
-  formula,
+  formula_50,
   data = kreise_polarity_context_sp,
   bw = bw,
   kernel = kernel,
@@ -887,28 +1016,54 @@ gwr_model <- gwr.basic(
 )
 
 # Mixed model ----
-spatial_vars <- c(
-  "industriequote", "kreative_klasse", "erwerbstätige_primsek",
-  "stimmenanteile_afd", "windkraft_pro_10000"
-)
-formula <- as.formula(paste("polarity ~", paste(spatial_vars, collapse = " + ")))
+spatial_vars <- msbw %>%
+  filter(model_3 < 200) %>%
+  pull(var)
+formula_mixed <- as.formula(paste("polarity ~", paste(spatial_vars, collapse = " + ")))
 bw <- bw.gwr(
-  formula,
+  formula_mixed,
   data = kreise_polarity_context_sp,
   approach = approach,
   kernel = kernel,
   adaptive = adaptive
 )
 
-gwr_mixed <- gwr.mixed(
-  formula,
+gwr_mixed <- gwr.mixed.fixed(
+  formula_50,
   data = kreise_polarity_context_sp,
   fixed.vars = setdiff(names(var_sel), spatial_vars),
   bw = bw,
   kernel = kernel,
   adaptive = TRUE
 )
+mixed_sf <- st_as_sf(gwr_mixed$SDF) %>%
+  tidyr::pivot_longer(
+    c(
+      industriequote_L, kreative_klasse_L, erwerbstätige_primsek_L,
+      stimmenanteile_afd_L, windkraft_pro_10000_L
+    )
+  ) %>%
+  mutate(name = recode(str_remove(name, fixed("_L")), !!!sel_eng))
 
+
+tm_shape(msgwr_sf) +
+  tm_fill(col = c(spatial_vars, "kreative_klasse"), pallete = "PRGn", style = "order", midpoint = 0) +
+  tm_facets(ncol = 2, free.scales.fill = FALSE)
+
+gwr_maps <- tm_shape(st_union(mixed_sf)) +
+  tm_borders() +
+  tm_shape(mixed_sf) +
+  tm_fill(col = "value", pallete = "PRGn", style = "order", midpoint = 0, title = "Coefficient") +
+  tm_facets(by = "name", ncol = 3, free.scales.fill = FALSE) +
+  tm_compass(position = c(0.83, 0.06)) +
+  tm_scale_bar(text.size = 0.35, width = 0.2, position = c("RIGHT", "BOTTOM")) +
+  tm_layout(
+    asp = 0.8,
+    outer.margins = c(-0.35, 0, -0.35, -0.15),
+    panel.label.bg.color = NA,
+    panel.label.fontface = "bold"
+  )
+tmap_save(gwr_maps, "plots/gwr_maps.pdf", device = cairo_pdf)
 
 # Plot results of MSGWR
 gwr_maps <- plot_gwr(

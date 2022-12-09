@@ -7,6 +7,11 @@ remove_file_ext <- function(file) {
 }
 
 
+quiet_name_repair <- function(..., repair = "unique") {
+  vctrs::vec_as_names(..., repair = "unique", quiet = TRUE)
+}
+
+
 check_date <- function(date) {
   date <- as_datetime(date) %>%
     floor_date(unit = "days") %>%

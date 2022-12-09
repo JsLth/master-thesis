@@ -1,70 +1,74 @@
+\begin{table}
 
-\begin{tabular}[t]{cccc}
+\caption[Comparison of GWR model specifications]{\label{tab:specs}Comparison of GWR model specifications. The results are grouped by bandwidth calibration technique (AIC or cross-validation), kernel function and kernel function type (fixed or adaptive).}
+\centering
+\begin{tabular}[t]{cccccccc}
 \toprule
- &  & Kernel & AIC\\
+ &  &  & AIC & AICc & BIC & RSS & R2\\
 \midrule
 \addlinespace[0.3em]
-\multicolumn{4}{l}{\textbf{CV}}\\
+\multicolumn{8}{l}{\textbf{CV}}\\
 \hspace{1em}\addlinespace[0.3em]
-\multicolumn{4}{l}{\textbf{AIC}}\\
+\multicolumn{8}{l}{\textbf{AIC}}\\
 \addlinespace[0.3em]
-\multicolumn{4}{l}{\textit{Gaussian}}\\
+\multicolumn{8}{l}{\textit{Gaussian}}\\
 \hspace{1em}\addlinespace[0.3em]
-\multicolumn{4}{l}{\textit{Gaussian}}\\
-\hspace{1em}\hspace{1em} &  & fixed & 1055.949\\
-\cmidrule{3-4}
-\hspace{1em}\hspace{1em} &  & adaptive & 1053.634\\
-\cmidrule{2-4}
+\multicolumn{8}{l}{\textit{Gaussian}}\\
+\hspace{1em}\hspace{1em} &  & fixed & 1055.9 & 1078.1 & 746.5 & 313.59 & 0.214\\
+\cmidrule{3-8}
+\hspace{1em}\hspace{1em} &  & adaptive & 1053.6 & 1077.7 & 752.1 & 310.55 & 0.222\\
+\cmidrule{2-8}
 \addlinespace[0.3em]
-\multicolumn{4}{l}{\textit{Exponential}}\\
-\hspace{1em}\hspace{1em} &  & fixed & 1049.214\\
-\cmidrule{3-4}
-\hspace{1em}\hspace{1em} &  & adaptive & 1039.236\\
-\cmidrule{2-4}
+\multicolumn{8}{l}{\textit{Exponential}}\\
+\hspace{1em}\hspace{1em} &  & fixed & 1049.2 & 1077.0 & 762.5 & 304.86 & 0.236\\
+\cmidrule{3-8}
+\hspace{1em}\hspace{1em} &  & adaptive & 1039.2 & 1075.7 & 785.4 & 292.50 & 0.267\\
+\cmidrule{2-8}
 \hspace{1em}\addlinespace[0.3em]
-\multicolumn{4}{l}{\textit{Bisquare}}\\
+\multicolumn{8}{l}{\textit{Bisquare}}\\
 \hspace{1em}\addlinespace[0.3em]
-\multicolumn{4}{l}{\textit{Bisquare}}\\
-\hspace{1em}\hspace{1em} &  & fixed & 1053.860\\
-\cmidrule{3-4}
-\hspace{1em}\hspace{1em}\hspace{1em}\hspace{1em} &  & adaptive & 1047.002\\
-\cmidrule{2-4}
+\multicolumn{8}{l}{\textit{Bisquare}}\\
+\hspace{1em}\hspace{1em} &  & fixed & 1053.9 & 1081.5 & 766.5 & 308.53 & 0.227\\
+\cmidrule{3-8}
+\hspace{1em}\hspace{1em}\hspace{1em}\hspace{1em} &  & adaptive & 1047.0 & 1083.4 & 793.0 & 298.26 & 0.252\\
+\cmidrule{2-8}
 \hspace{1em}\addlinespace[0.3em]
-\multicolumn{4}{l}{\textit{Tricube}}\\
+\multicolumn{8}{l}{\textit{Tricube}}\\
 \hspace{1em}\addlinespace[0.3em]
-\multicolumn{4}{l}{\textit{Tricube}}\\
-\hspace{1em}\hspace{1em} &  & fixed & 1056.950\\
-\cmidrule{3-4}
-\hspace{1em}\hspace{1em}\hspace{1em}\hspace{1em} &  & adaptive & 1051.627\\
-\cmidrule{2-4}
+\multicolumn{8}{l}{\textit{Tricube}}\\
+\hspace{1em}\hspace{1em} &  & fixed & 1057.0 & 1082.4 & 760.8 & 312.30 & 0.217\\
+\cmidrule{3-8}
+\hspace{1em}\hspace{1em}\hspace{1em}\hspace{1em} &  & adaptive & 1051.6 & 1085.0 & 786.5 & 303.42 & 0.240\\
+\cmidrule{2-8}
 \hspace{1em}\addlinespace[0.3em]
-\multicolumn{4}{l}{\textit{Boxcar}}\\
+\multicolumn{8}{l}{\textit{Boxcar}}\\
 \hspace{1em}\addlinespace[0.3em]
-\multicolumn{4}{l}{\textit{Boxcar}}\\
-\hspace{1em}\hspace{1em} &  & fixed & 1056.610\\
-\cmidrule{3-4}
-\hspace{1em}\hspace{1em}\hspace{1em}\hspace{1em} &  & adaptive & 1054.610\\
-\cmidrule{1-4}
- &  & fixed & 1055.949\\
-\cmidrule{3-4}
-\hspace{1em}\hspace{1em} &  & adaptive & 1053.041\\
-\cmidrule{2-4}
+\multicolumn{8}{l}{\textit{Boxcar}}\\
+\hspace{1em}\hspace{1em} &  & fixed & 1056.6 & 1077.4 & 741.6 & 314.99 & 0.211\\
+\cmidrule{3-8}
+\hspace{1em}\hspace{1em}\hspace{1em}\hspace{1em} &  & adaptive & 1054.6 & 1075.8 & 741.2 & 313.16 & 0.215\\
+\cmidrule{1-8}
+ &  & fixed & 1055.9 & 1078.1 & 746.5 & 313.59 & 0.214\\
+\cmidrule{3-8}
+\hspace{1em}\hspace{1em} &  & adaptive & 1053.0 & 1077.7 & 753.7 & 309.76 & 0.224\\
+\cmidrule{2-8}
 \addlinespace[0.3em]
-\multicolumn{4}{l}{\textit{Exponential}}\\
-\hspace{1em}\hspace{1em} &  & fixed & 1046.943\\
-\cmidrule{3-4}
-\hspace{1em}\hspace{1em} &  & adaptive & 1039.022\\
-\cmidrule{2-4}
- &  & fixed & 1053.860\\
-\cmidrule{3-4}
- &  & adaptive & 1047.002\\
-\cmidrule{2-4}
- &  & fixed & 1056.950\\
-\cmidrule{3-4}
- &  & adaptive & 1051.627\\
-\cmidrule{2-4}
- &  & fixed & 1056.610\\
-\cmidrule{3-4}
- &  & adaptive & 1054.610\\
+\multicolumn{8}{l}{\textit{Exponential}}\\
+\hspace{1em}\hspace{1em} &  & fixed & 1046.9 & 1077.0 & 769.1 & 301.81 & 0.244\\
+\cmidrule{3-8}
+\hspace{1em}\hspace{1em} &  & adaptive & 1039.0 & 1075.7 & 786.0 & 292.22 & 0.268\\
+\cmidrule{2-8}
+ &  & fixed & 1053.9 & 1081.5 & 766.5 & 308.53 & 0.227\\
+\cmidrule{3-8}
+ &  & adaptive & 1047.0 & 1083.4 & 793.0 & 298.26 & 0.252\\
+\cmidrule{2-8}
+ &  & fixed & 1057.0 & 1082.4 & 760.8 & 312.30 & 0.217\\
+\cmidrule{3-8}
+ &  & adaptive & 1051.6 & 1085.0 & 786.5 & 303.42 & 0.240\\
+\cmidrule{2-8}
+ &  & fixed & 1056.6 & 1077.4 & 741.6 & 314.99 & 0.211\\
+\cmidrule{3-8}
+ &  & adaptive & 1054.6 & 1075.8 & 741.2 & 313.16 & 0.215\\
 \bottomrule
 \end{tabular}
+\end{table}

@@ -5,13 +5,13 @@ source("R/packages.R")
 # of choice
 model_selection <- function(formula,
                             data = list(),
-                            diagnostic = c("AIC", "AICc", "RSS.gw", "gw.R2", "BIC"),
+                            diagnostic = c("AIC", "AICc", "BIC", "RSS.gw", "gw.R2"),
                             table_diagnostic = c("all", diagnostic)) {
   stopifnot(inherits(data, "sf"))
   include_all <- FALSE
   table_diagnostic <- match.arg(table_diagnostic)
   if (table_diagnostic == "all") {
-    table_diagnostic <- diagnostic
+    table_diagnostic <- eval(formals()$diagnostic)
     include_all <- TRUE
   }
   diagnostic <- match.arg(diagnostic)
@@ -104,17 +104,24 @@ model_selection <- function(formula,
       bind_cols(exp_specs, .) %>%
       set_rownames(NULL)
     
+    modelselect_df$AIC <- round(modelselect_df$AIC, 1)
+    modelselect_df$AICc <- round(modelselect_df$AICc, 1)
+    modelselect_df$BIC <- round(modelselect_df$BIC, 1)
+    modelselect_df$RSS.gw <- round(modelselect_df$RSS.gw, 2)
+    modelselect_df$gw.R2 <- round(modelselect_df$gw.R2, 3)
+    
     kab <- kableExtra::kbl(
       modelselect_df,
       booktabs = TRUE,
+      col.names = c("", "", "", "AIC", "AICc", "BIC", "RSS", "R2"),
       align = "c",
       linesep = "",
       format = "latex",
-      caption = "Comparison of GWR model specifications. The results are grouped by bandwidth calibration technique (AIC or cross-validation),kernel function and kernel function type (fixed or adaptive).",
+      caption = "Comparison of GWR model specifications. The results are grouped by bandwidth calibration technique (AIC or cross-validation), kernel function and kernel function type (fixed or adaptive).",
       caption.short = "Comparison of GWR model specifications",
       label = "specs"
     ) %>%
-      kableExtra::collapse_rows(1:3, row_group_label_position = "stack", valign = "top")
+      kableExtra::collapse_rows(1:3, row_group_label_position = "stack")
     
     opt_row <- modelselect_df %>%
       dplyr::select(Approach, Function, Kernel, all_of(diagnostic)) %>%
@@ -245,82 +252,85 @@ plot_kernels <- function(d = 1:3000, bw = 1000) {
 }
 
 
-gwr.mixed.fixed <- function(formula, data, regression.points, fixed.vars,intercept.fixed=FALSE, bw, diagnostic=T,
-                      kernel="bisquare", adaptive=FALSE, p=2, theta=0, longlat=F,dMat, dMat.rp)
-{
-  ##Record the start time
+# gwr.mixed from GWmodel doesn't work out of the box
+# This version fixes a few typos in the original to make it work
+gwr.mixed.fixed <- function(formula,
+                            data,
+                            regression.points,
+                            fixed.vars,intercept.fixed = FALSE,
+                            bw,
+                            diagnostic = TRUE,
+                            kernel = "bisquare",
+                            adaptive = FALSE,
+                            p = 2,
+                            theta = 0,
+                            longlat = FALSE,
+                            dMat,
+                            dMat.rp) {
   timings <- list()
   timings[["start"]] <- Sys.time()
-  ###################################macth the variables
   this.call <- match.call()
   p4s <- as.character(NA)
-  if (diagnostic) 
-    hatmatrix <- T
-  else 
-    hatmatrix <- F
-  #####Check the given data frame and regression points
-  #####Regression points
-  if (missing(regression.points))
-  {
+  hatmatrix <- diagnostic
+
+  if (missing(regression.points)) {
     rp.given <- FALSE
     regression.points <- data
-    rp.locat<-coordinates(data)
-  }
-  else
-  {
+    rp.locat <- coordinates(data)
+  } else {
     rp.given <- TRUE
-    if (is(regression.points, "Spatial"))
-    {
-      rp.locat<-coordinates(regression.points)
-    }
-    else if (is.numeric(regression.points) && dim(regression.points)[2] == 2)
-      rp.locat<-regression.points
-    else
-    {
+    if (is(regression.points, "Spatial")) {
+      rp.locat <- coordinates(regression.points)
+    } else if (is.numeric(regression.points) && dim(regression.points)[2] == 2) {
+      rp.locat <- regression.points
+    } else {
       warning("Output loactions are not packed in a Spatial object,and it has to be a two-column numeric vector")
-      rp.locat<-dp.locat
+      rp.locat <- dp.locat
     }
   }
-  ##Data points{
-  if (is(data, "Spatial"))
-  {
+
+  if (is(data, "Spatial")) {
     p4s <- proj4string(data)
-    dp.locat<-coordinates(data)
+    dp.locat <- coordinates(data)
     data <- as(data, "data.frame")
-  }
-  else
-  {
+  } else {
     stop("Given regression data must be Spatial*DataFrame")
   }
-  #########Distance matrix is given or not
+
   dp.n <- nrow(dp.locat)
   rp.n <- nrow(rp.locat)
-  if (missing(dMat))
-  {
-    DM.given<-F
-    DM1.given<-F
-    dMat <- gw.dist(dp.locat=dp.locat, rp.locat=dp.locat, p=p, theta=theta, longlat=longlat)
-    dMat.rp <- gw.dist(dp.locat=dp.locat, rp.locat=rp.locat, p=p, theta=theta, longlat=longlat)
-  }
-  else
-  {
-    DM.given<-T
-    dim.dMat<-dim(dMat)
-    if (dim.dMat[1]!=dp.n||dim.dMat[2]!=dp.n)
+  if (missing(dMat)) {
+    DM.given <- FALSE
+    DM1.given <- FALSE
+    dMat <- gw.dist(
+      dp.locat = dp.locat,
+      rp.locat = dp.locat,
+      p = p,
+      theta = theta,
+      longlat = longlat
+    )
+    dMat.rp <- gw.dist(
+      dp.locat = dp.locat,
+      rp.locat = rp.locat,
+      p = p,
+      theta = theta,
+      longlat = longlat
+    )
+  } else {
+    DM.given <- TRUE
+    dim.dMat <- dim(dMat)
+    if (dim.dMat[1] != dp.n || dim.dMat[2] != dp.n)
       stop("Dimensions of dMat are not correct")
     if (missing(dMat.rp)) {
       dMat.rp <- dMat
-    }
-    else
-    {
+    } else {
       dim.dMat.rp <- dim(dMat.rp)
-      if (dim.dMat.rp[1]!=dp.n||dim.dMat.rp[2]!=rp.n)
+      if (dim.dMat.rp[1] != dp.n || dim.dMat.rp[2] != rp.n)
         stop("Dimensions of dMat.rp are not correct")
     }
-    DM1.given<-T 
+    DM1.given <- TRUE
   }
-  ####################
-  ######Extract the data frame
+
   mf <- match.call(expand.dots = FALSE)
   m <- match(c("formula", "data"), names(mf), 0L)
   
@@ -332,92 +342,116 @@ gwr.mixed.fixed <- function(formula, data, regression.points, fixed.vars,interce
   y <- model.extract(mf, "response")
   x <- model.matrix(mt, mf)
   idx1 <- match("(Intercept)", colnames(x))
-  if(!is.na(idx1))
-    colnames(x)[idx1]<-"Intercept" 
-  #colnames(x)[1]<-"Intercept"
-  if (missing(fixed.vars))
-  {
+  if (!is.na(idx1))
+    colnames(x)[idx1] <- "Intercept" 
+  if (missing(fixed.vars)) {
     warning("No independent variables in the formula is specified as fixed terms!")
-    if(!intercept.fixed)
+    if (!intercept.fixed)
       stop("Please use basic GWR function to calibrate this model")
-  }
-  else
-  {
-    if(intercept.fixed)
+  } else {
+    if (intercept.fixed)
       fixed.vars <- c("Intercept", fixed.vars)
   }
+
   idx.fixed <- match(fixed.vars, colnames(x))
   x1 <- x[, -idx.fixed]
-  x2<- x[, idx.fixed]
+  x2 <- x[, idx.fixed]
   if (!is.null(x1)) x1 <- as.matrix(x1, nrow = dp.n)
   if (!is.null(x2)) x2 <- as.matrix(x2, nrow = dp.n)
   colnames(x1) <- colnames(x)[-idx.fixed]
   colnames(x2) <- colnames(x)[idx.fixed]
-  #y <- as.matrix(y, nrow = dp.n)
-  model <- gwr.mixed.2.fast(x1, x2, y, adaptive=adaptive, bw=bw,
-                            kernel=kernel, dMat=dMat, dMat.rp=dMat.rp)                     
+  model <- GWmodel:::gwr.mixed.2.fast(
+    x1,
+    x2,
+    y,
+    adaptive = adaptive,
+    bw = bw,
+    kernel = kernel,
+    dMat = dMat,
+    dMat.rp = dMat.rp
+  )
   res <- list()
   res$local <- model$local 
-  res$global <- as.matrix(apply(model$global,2,mean,na.rm=T), 1, length(idx.fixed))
+  res$global <- as.matrix(apply(model$global, 2, mean,na.rm = TRUE), 1, length(idx.fixed))
   colnames(res$local) <- colnames(x1)
   rownames(res$global) <- colnames(x2)
   mgwr.df <- data.frame(model$local, model$global)
-  colnames(mgwr.df) <- c(paste(colnames(x1), "L", sep="_"), paste(colnames(x2), "F", sep="_"))
-  rownames(rp.locat)<-rownames(mgwr.df)
-  griddedObj <- F
-  if (is(regression.points, "Spatial"))
-  { 
-    if (is(regression.points, "SpatialPolygonsDataFrame"))
-    {
-      polygons<-polygons(regression.points)
-      #SpatialPolygons(regression.points)
-      #         #rownames(mgwr.df) <- sapply(slot(polygons, "polygons"),
-      #                            #  function(i) slot(i, "ID"))
-      SDF <-SpatialPolygonsDataFrame(Sr=polygons, data=mgwr.df, match.ID=F)
-    }
-    else
-    {
+  colnames(mgwr.df) <- c(
+    paste(colnames(x1), "L", sep = "_"), paste(colnames(x2), "F", sep = "_")
+  )
+  rownames(rp.locat) <- rownames(mgwr.df)
+  griddedObj <- FALSE
+  if (is(regression.points, "Spatial")) { 
+    if (is(regression.points, "SpatialPolygonsDataFrame")) {
+      polygons <- polygons(regression.points)
+      SDF <- SpatialPolygonsDataFrame(Sr = polygons, data = mgwr.df, match.ID = F)
+    } else {
       griddedObj <- gridded(regression.points)
-      SDF <- SpatialPointsDataFrame(coords=rp.locat, data=mgwr.df, proj4string=CRS(p4s), match.ID=F)
+      SDF <- SpatialPointsDataFrame(
+        coords = rp.locat,
+        data = mgwr.df,
+        proj4string = CRS(p4s),
+        match.ID = FALSE
+      )
       gridded(SDF) <- griddedObj 
     }
+  } else {
+    SDF <- SpatialPointsDataFrame(
+      coords = rp.locat,
+      data = mgwr.df,
+      proj4string = CRS(p4s),
+      match.ID = FALSE
+    )
   }
-  else
-    SDF <- SpatialPointsDataFrame(coords=rp.locat, data=mgwr.df, proj4string=CRS(p4s), match.ID=F)
-  # 
-  #   if (is(regression.points, "SpatialPolygonsDataFrame"))
-  #    {
-  #       polygons<-polygons(regression.points)
-  #       #SpatialPolygons(regression.points)
-  #       rownames(mgwr.df) <- sapply(slot(polygons, "polygons"),
-  #                          function(i) slot(i, "ID"))
-  #       SDF <-SpatialPolygonsDataFrame(Sr=polygons, data=mgwr.df)
-  #    }
-  #    else
-  #       SDF <- SpatialPointsDataFrame(coords=rp.locat, data=mgwr.df, proj4string=CRS(p4s), match.ID=F)
   
   res$SDF <- SDF
-  if (hatmatrix)
-  {
-    gwr.fitted <- function(x,b) apply(x*b,1,sum)
-    edf <- gwr.mixed.trace.fast(x1, x2, y, adaptive=adaptive, bw=bw,
-                                kernel=kernel, dMat=dMat)
-    model2 <-gwr.mixed.2.fast(x1, x2, y, adaptive=adaptive, bw=bw, 
-                              kernel=kernel, dMat=dMat, dMat.rp=dMat)
-    #r.ss <- rss(y, cbind(x1,x2), cbind(model2$local, model2$global)) 
-    r.ss <- sum((y - gw_fitted(model2$global, x2) - gw_fitted(model2$local,x1))^2)
+  if (hatmatrix) {
+    gwr.fitted <- function(x, b) apply(x * b, 1, sum)
+    edf <- GWmodel:::gwr.mixed.trace.fast(
+      x1,
+      x2,
+      y,
+      adaptive = adaptive,
+      bw = bw,
+      kernel = kernel,
+      dMat = dMat
+    )
+    model2 <- GWmodel:::gwr.mixed.2.fast(
+      x1,
+      x2,
+      y,
+      adaptive = adaptive,
+      bw = bw, 
+      kernel = kernel,
+      dMat = dMat,
+      dMat.rp = dMat
+    )
+ 
+    r.ss <- sum((y - GWmodel:::gw_fitted(model2$global, x2) - GWmodel:::gw_fitted(model2$local, x1)) ^ 2)
     n1 <- length(y)
     sigma.aic <- r.ss / n1
-    aic <- log(sigma.aic*2*pi) + 1 + 2*(edf + 1)/(n1 - edf - 2)
-    aic <- n1*aic
+    aic <- log(sigma.aic * 2 * pi) + 1 + 2 * (edf + 1) / (n1 - edf - 2)
+    aic <- n1 * aic
     res$aic <- aic
-    res$bic <- n1*log(sigma.aic) + n1*log(2*pi) + edf * log(n1)
+    res$bic <- n1 * log(sigma.aic) + n1 * log(2 * pi) + edf * log(n1)
     res$df.used <- edf
     res$r.ss <- r.ss
   }
-  GW.arguments<-list(formula=formula,rp.given=rp.given,hatmatrix=hatmatrix,bw=bw, 
-                     kernel=kernel,adaptive=adaptive, p=p, theta=theta, longlat=longlat,
-                     DM.given=DM1.given,diagnostic=diagnostic)
+  
+  GW.arguments <- list(
+    formula = formula,
+    rp.given = rp.given,
+    hatmatrix = hatmatrix,
+    bw = bw, 
+    kernel = kernel,
+    adaptive = adaptive,
+    p = p,
+    theta = theta,
+    longlat = longlat,
+    DM.given = DM1.given,
+    diagnostic = diagnostic
+  )
+  
   res$GW.arguments <- GW.arguments
   res$this.call <- this.call
   timings[["stop"]] <- Sys.time()
@@ -427,10 +461,11 @@ gwr.mixed.fixed <- function(formula, data, regression.points, fixed.vars,interce
 }
 
 
-R.utils::reassignInPackage("gwr.mixed", "GWmodel", gwr.mixed.fixed)
-
-
-
+# Plots GWR results using various approaches inclduding Mennis (2006),
+# Matthews (2016) and some custom touches
+# p_methods are short for fb - Fotheringham-Byrne, bh - Benjamini-Hochberg,
+# bo - Bonferroni and by - Benjamini-Yekutieli
+# Refer to ?GWmodel::gwr.t.adjust
 plot_gwr <- function(model,
                      col,
                      type = c("coef", "r2", "se"),
@@ -712,4 +747,13 @@ plot_gwr <- function(model,
   }
   
   m
+}
+
+
+repair_msgwr <- function(model) {
+  names(model)[5] <- "bw"
+  row.names(model$bw) <- NULL
+  model$bw <- model$bw[nrow(model$bw), ]
+  names(model$bw) <- c("Intercept", names(var_sel))
+  model
 }

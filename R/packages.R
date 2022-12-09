@@ -10,7 +10,7 @@ pkgs <- c(
   
   # Data cleaning
   "emoji", "lubridate", "zoo", "xml2", "randomForest", "broom", "broom.mixed",
-  "tidytext",
+  "tidytext", "vctrs",
   
   # Debugging and convenience
   "cli", "callr", "processx", "bench", "magrittr", "rlang", "retry", "R.utils",

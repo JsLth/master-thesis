@@ -247,15 +247,4 @@ var_sel_latex <- data.frame(
     2021,
     2019
   )
-) %>%
-  kableExtra::kbl(
-    format = "latex",
-    row.names = FALSE,
-    col.names = colnames(.),
-    caption = "Overview and descriptions of the 16 independent variables included in the statistical models",
-    label = "indep",
-    booktabs = TRUE,
-    escape = FALSE,
-    align = c("l", "l", "l", "l")
-  ) %>%
-  kable_paper()
+)
