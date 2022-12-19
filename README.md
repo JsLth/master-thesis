@@ -8,6 +8,7 @@ Tweet data is collected using the Twitter API. Context data is taken from OpenSt
 
 ## Structure
 
+Each code function and workflow step is explained using the R `#` sign. Major workflow steps are denoted using a quadruple dash `----`. Tables and figures are labelled like in the thesis as `Figure x` and `Table x`.
 The code files are divided into workflow files and auxiliary files. Workflow files execute computations while functional files provide the functions, lists and packages for workflow files.
 
 ### Workflow files
