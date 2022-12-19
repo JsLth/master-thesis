@@ -24,6 +24,13 @@ pvalue_stars <- function(x, p, cutoff = c(0.1, 0.05, 0.005), left_align = FALSE)
 }
 
 
+tidy_custom.lmerMod <- function(x, ...) {
+  s <- p_value_betwithin(x)
+  names(s) <- c("term", "p.value")
+  s
+}
+
+
 district_summary <- function(data, kreise, n = 20) {
   which <- kreise %>%
     arrange(desc(authors)) %>%
@@ -115,7 +122,7 @@ plot_ci <- function(..., level = 0.95, cutoff = c(0.1, 0.05, 0.005), limits = NU
 
   ggplot(ci, aes(x = variable)) +
     geom_point(aes(y = coef), size = 2) +
-    geom_errorbar(aes(y = coef, ymin = lower, ymax = upper), width = 0.25) +
+    geom_errorbar(aes(y = coef, ymin = lower, ymax = upper), width = 0.5) +
     geom_hline(yintercept = 0, linetype = "dashed", alpha = 0.5) +
     geom_text(aes(y = upper + mar, label = sig), na.rm = TRUE) +
     theme_bw() +
@@ -214,13 +221,14 @@ dotplot <- function(data,
           axis.text.x = element_blank(),
           plot.margin = unit(c(0, 0, 0, 0), "cm"),
           strip.background = element_blank(),
-          strip.text.y = element_text(size = 7)) +
+          strip.text.x = element_text(size = 10, face = "bold"),
+          strip.text.y = element_text(size = 8, face = "bold")) +
     scale_y_continuous(expand = c(0, 0)) +
     scale_x_reordered(labels = labeller) +
     scale_alpha_manual(values = c("FALSE" = 1 / (nrow(data) ^ 0.33), "TRUE" = 1)) +
     facet_grid(rows = vars(term), cols = vars(model), switch = "y", scales = "free_x") +
     coord_cartesian(ylim = ylim) +
-    labs(x = "Districts", y = "Estimate")
+    labs(x = "Districts", y = "Coefficient")
 }
 
 labeller <- function(x, sep = "___") {
@@ -343,7 +351,7 @@ plot_vif <- function(..., colors = c("#3aaf85", "#1b6ca8", "#cd201f"), size_poin
     {
       if (!is.null(ci_data)) {
         list(
-          ggplot2::geom_linerange(size = size_line),
+          ggplot2::geom_linerange(lwd = size_line),
           ggplot2::geom_segment(
             data = dat[dat$VIF_CI_high >  ylim * 1.15, ],
             mapping = aes(
@@ -390,4 +398,43 @@ plot_vif <- function(..., colors = c("#3aaf85", "#1b6ca8", "#cd201f"), size_poin
     p <- p + ggplot2::facet_wrap(~facet, ncol = 2, scales = "fixed")
   }
   p + coord_flip()
+}
+
+
+plot_qq <- function(...,
+                    alpha_level = 0.2,
+                    size_point = 2,
+                    size_line = 0.8,
+                    dot_alpha_level = 0.8,
+                    detrend = FALSE,
+                    colors = c("black", "#1b6ca8"),
+                    theme_style = theme_bw) {
+  dots <- list(...)
+  
+  x <- map_dfr(seq_along(dots), function(i) {
+    dat <- dots[[i]]
+    resid <- sort(residuals(dat))
+    data.frame(res = resid, model = paste("Model", i))
+  })
+  
+  qq_stuff <- list(
+    qqplotr::stat_qq_band(alpha = alpha_level, detrend = detrend),
+    qqplotr::stat_qq_point(
+      shape = 16,
+      stroke = 0,
+      size = size_point,
+      colour = colors[2],
+      alpha = dot_alpha_level,
+      detrend = detrend
+    ),
+    qqplotr::stat_qq_line(linewidth = size_line, colour = colors[1], detrend = detrend)
+  )
+  
+  ggplot2::ggplot(x, aes(sample = res)) +
+    qq_stuff + 
+    ggplot2::labs(y = "Sample quantiles", x = "Standard normal distribution quantiles") +
+    facet_wrap(~model, ncol = 2) +
+    theme_style(base_size = 10) +
+    theme(strip.background = element_blank(),
+          strip.text = element_text(size = 12, face = "bold"))
 }

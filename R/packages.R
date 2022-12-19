@@ -23,11 +23,12 @@ pkgs <- c(
   "sf", "sp",  "stars", "starsExtra", "gstat",
   
   # Spatial statistics
-  "spdep", "spgwr", "GWmodel", "lme4", "merTools", "lmerTest", "nortest",
+  "spdep", "spgwr", "GWmodel", "lme4", "merTools", "nortest", "clubSandwich",
   
   # Visualization
   "tmap", "ggpubr", "ggnewscale", "Cairo", "patchwork", "gridExtra", "ggrastr",
   "latex2exp", "extrafont", "classInt", "RColorBrewer", "pheatmap", "ggrepel",
+  "qqplotr",
   
   # LaTeX
   "kableExtra", "stargazer", "modelsummary", "huxtable", "flextable",

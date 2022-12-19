@@ -203,7 +203,7 @@ plot_kernels <- function(d = 1:3000, bw = 1000) {
     scale_y_continuous(limits = c(0, 1)) +
     labs(y = NULL, x = NULL) +
     ggtitle("Global") +
-    theme(text = element_text(family = "CMU Serif"))
+    theme(text = element_text())
   gauss <- ggplot(.data, aes(x = dist, y = gauss)) +
     geom_line(size = 1.5) +
     theme_bw() +
@@ -211,7 +211,7 @@ plot_kernels <- function(d = 1:3000, bw = 1000) {
     scale_x_continuous(expand = c(0, 0), breaks = c(-2000, -1000, 0, 1000, 2000)) +
     labs(y = NULL, x = NULL) +
     ggtitle("Gaussian") +
-    theme(text = element_text(family = "CMU Serif"))
+    theme(text = element_text())
   exp <- ggplot(.data, aes(x = dist, y = exp)) +
     geom_line(size = 1.5) +
     theme_bw() +
@@ -220,23 +220,23 @@ plot_kernels <- function(d = 1:3000, bw = 1000) {
     scale_y_continuous(limits = c(0, 1)) +
     labs(y = NULL, x = NULL) +
     ggtitle("Exponential") +
-    theme(text = element_text(family = "CMU Serif"))
+    theme(text = element_text())
   bisquare <- ggplot(.data, aes(x = dist, y = bisquare)) +
     geom_line(size = 1.5) +
     theme_bw() +
     theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
     scale_x_continuous(expand = c(0, 0), breaks = c(-2000, -1000, 0, 1000, 2000)) +
     labs(y = NULL, x = NULL) +
-    ggtitle("Bi-square") +
-    theme(text = element_text(family = "CMU Serif"))
+    ggtitle("Bisquare") +
+    theme(text = element_text())
   tricube <- ggplot(.data, aes(x = dist, y = tricube)) +
     geom_line(size = 1.5) +
     theme_bw() +
     theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
     scale_x_continuous(expand = c(0, 0), breaks = c(-2000, -1000, 0, 1000, 2000)) +
     labs(y = NULL, x = NULL) +
-    ggtitle("Tri-cube") +
-    theme(text = element_text(family = "CMU Serif"))
+    ggtitle("Tricube") +
+    theme(text = element_text())
   boxcar <- ggplot(.data, aes(x = dist, y = boxcar)) +
     geom_line(size = 1.5) +
     theme_bw() +
@@ -244,10 +244,10 @@ plot_kernels <- function(d = 1:3000, bw = 1000) {
     scale_x_continuous(expand = c(0, 0), breaks = c(-2000, -1000, 0, 1000, 2000)) +
     labs(y = NULL, x = NULL) +
     ggtitle("Boxcar") +
-    theme(text = element_text(family = "CMU Serif"))
+    theme(text = element_text())
   grid.arrange(global, gauss, exp, bisquare, tricube, boxcar,
-               bottom = ggpubr::text_grob("Distance", family = "CMU Serif"),
-               left = ggpubr::text_grob("Weight", family = "CMU Serif", rot = 90),
+               bottom = ggpubr::text_grob("Distance"),
+               left = ggpubr::text_grob("Weight", rot = 90),
                ncol = 2)
 }
 
@@ -756,4 +756,309 @@ repair_msgwr <- function(model) {
   model$bw <- model$bw[nrow(model$bw), ]
   names(model$bw) <- c("Intercept", names(var_sel))
   model
+}
+
+
+#adjusted version of GWmodel::gwr.bootstrap
+gwr.mixed.bootstrap <- function(formula,
+                                data,
+                                fixed.vars,
+                                kernel = "bisquare",
+                                approach = "AIC",
+                                R = 99,
+                                k.nearneigh = 4,
+                                adaptive = FALSE,
+                                p = 2,
+                                theta = 0,
+                                longlat = FALSE,
+                                dMat,
+                                verbose = FALSE,
+                                parallel.method = FALSE,
+                                parallel.arg = NULL) {
+  timings = list()
+  timings[["start"]] <- Sys.time()
+  
+  this.call <- match.call()
+  p4s <- as.character(NA)
+  n.sim.rep <- 10
+  
+  polygons <- NULL
+  
+  if (is(data, "sf")) {
+    data <- as_Spatial(data)
+  }
+  
+  if (is(data, "SpatialPolygonsDataFrame")) {
+    polygons <- polygons(data)
+    dp.locat <- coordinates(data)
+    gnb <- poly2nb(polygons)
+    glw <- nb2listw(gnb)
+    W.adj <- listw2mat(glw) 
+  } else if (is(data, "SpatialPointsDataFrame")) {
+    dp.locat <- coordinates(data)
+    gnb <- knn2nb(knearneigh(dp.locat, k = k.nearneigh), sym = T)
+    glw <- nb2listw(gnb)
+    W.adj <- listw2mat(glw) 
+  } else {
+    stop("Given regression data must be Spatial*DataFrame")
+  }
+  
+  sp.data <- data
+  data <- as(data, "data.frame")
+  dp.n <- nrow(dp.locat)
+  
+  if (missing(dMat)) {
+    dMat <- gw.dist(dp.locat = dp.locat, p = p, theta = theta, longlat = longlat)
+  } else {
+    dim.dMat <- dim(dMat)
+    if (dim.dMat[1] != dp.n || dim.dMat[2] != dp.n) {
+      stop("Dimensions of dMat are not correct")
+    }
+  }
+  
+  # Fit global models
+  ols.model <- lm(formula, data)
+  dep.var <- deparse(eval(formula)[[2]])
+  
+  indep.vars <- names(ols.model$coefficients)
+  local.vars <- setdiff(indep.vars, fixed.vars)
+  var.n <- length(local.vars)
+  idx1 <- match("(Intercept)", indep.vars)
+  if (!is.na(idx1)) indep.vars[idx1] <- "Intercept"
+  
+  # Get localized bandwidth
+  bw <- bw.gwr3(
+    formula,
+    data = sp.data,
+    approach = approach,
+    kernel = kernel,
+    adaptive = adaptive,
+    dMat = dMat,
+    verbose = verbose,
+    parallel.method = parallel.method,
+    parallel.arg = parallel.arg
+  )
+  
+  # Fit mixed model
+  gwr.model <- gwr.mixed.fixed(
+    formula = formula,
+    data = sp.data,
+    fixed.vars = fixed.vars,
+    intercept.fixed = FALSE,
+    bw = bw,
+    diagnostic = TRUE,
+    kernel = kernel,
+    adaptive = adaptive,
+    p = p,
+    theta = theta,
+    longlat = longlat,
+    dMat = dMat
+  )
+  
+  cat("Computing global statistics\n")
+  
+  ols.bst <- parametric.bs(
+    ols.model,
+    dep.var,
+    dp.locat,
+    W.adj,
+    gwrtvar,
+    R = R,
+    report = n.sim.rep,
+    formula = formula,
+    approach = approach,
+    kernel = kernel,
+    adaptive = adaptive,
+    dMat = dMat,
+    verbose = verbose,
+    parallel.method = parallel.method,
+    parallel.arg = parallel.arg
+  )
+  
+  sp.data <- SpatialPointsDataFrame(dp.locat, data, match.ID = FALSE)
+  
+  actual.t <- gwrtvar(
+    sp.data,
+    formula,
+    approach,
+    kernel,
+    adaptive,
+    dMat,
+    verbose = verbose,
+    parallel.method = parallel.method,
+    parallel.arg = parallel.arg
+  )
+  
+  results.t <- rbind(ci.bs(ols.bst, 0.95), pval.bs(ols.bst, actual.t))
+  
+  rownames(results.t) <- c(
+    "   Modified statistic for MLR at 95% level",
+    "   p value to accept null hypothese(MLR)"
+  )
+  
+  cat("\nComputing local statistics\n")
+  
+  mlr.bsm <- parametric.bs.local(
+    ols.model,
+    dep.var,
+    dp.locat,
+    W.adj,
+    gwrt.mlr,
+    R = R,
+    report = n.sim.rep,
+    formula = formula,
+    approach = approach,
+    kernel = kernel,
+    adaptive = adaptive,
+    dMat = dMat,
+    verbose = verbose,
+    parallel.method = parallel.method,
+    parallel.arg = parallel.arg
+  )
+  
+  actual.m.mlr <- gwrt.mlr(
+    sp.data,
+    formula,
+    approach,
+    kernel,
+    adaptive,
+    dMat,
+    verbose = verbose,
+    parallel.method = parallel.method,
+    parallel.arg = parallel.arg
+  )
+  
+  colnames(results.t) <- indep.vars	  
+  mlr.t.local <- c()
+  mlr.p.local <- c()
+  
+  for (i in 1:var.n) {
+    mlr.q.vec <- c()
+    for (j in 1:R) {
+      mlr.q.vec <- rbind(mlr.q.vec, mlr.bsm[[j]][, i])
+    }
+    mlr.t.local <- cbind(mlr.t.local, ci.bs(mlr.q.vec, 0.95))
+    mlr.p.local <- cbind(mlr.p.local, pval.bs(mlr.q.vec,actual.m.mlr[, i]))
+  }
+  
+  bsm.local.df <- data.frame(
+    gwr.model$SDF@data,
+    mlr.p.local,
+    mlr.t.local
+  )
+
+  names(bsm.local.df)[!str_detect(names(bsm.local.df), "_L|_F")] <- c(
+    paste(local.vars, "MLR_p", sep = "_"),
+    paste(local.vars, "MLR_t", sep = "_")
+  )
+  
+  if (!is.null(polygons)) {
+    rownames(bsm.local.df) <- sapply(
+      slot(polygons, "polygons"),
+      function(i) slot(i, "ID")
+    )
+    SDF <- SpatialPolygonsDataFrame(
+      Sr = polygons,
+      data = bsm.local.df,
+      match.ID = FALSE
+    )
+  } else {
+    SDF <- SpatialPointsDataFrame(
+      coords = dp.locat,
+      data = bsm.local.df,
+      proj4string = CRS(p4s),
+      match.ID = FALSE
+    )
+  }
+  
+  timings[["stop"]] <- Sys.time()
+  res <- list(
+    formula = formula,
+    results = results.t,
+    SDF = SDF,
+    timings = timings,
+    this.call = this.call)
+  invisible(res)
+}
+
+
+# fixed version of GWmodel::generate.lm.data
+generate.lm.data <- function(obj, W, dep.var) {
+  # Linear model
+  generate.data.lm <- function(obj, W, dep.var) {
+    x = obj$model
+    yname <- dep.var
+    ypos = match(yname,colnames(x))
+    y = fitted(obj) + rnorm(nrow(x), 0, summary(obj)$sigma)
+    x[, ypos] = y
+    data.frame(x)
+  }
+  
+  # Error SAR lm
+  generate.data.errorsarlm <- function(obj, W, dep.var) {
+    x = as.matrix(cbind(obj$y,obj$X[, -1]))
+    yname <- dep.var
+    ypos = 1
+    y = fitted(obj) + solve(diag(nrow(x)) - obj$lambda * W,rnorm(nrow(x), 0, sqrt(obj$s2)))
+    x[, ypos] = y
+    colnames(x)[ypos] <- yname
+    x <- data.frame(x)
+    x
+  }
+  
+  # Error SMA lm
+  generate.data.smalm <- function(obj, W, dep.var) {
+    x = as.matrix(obj$model)
+    yname <- dep.var
+    ypos = match(yname,colnames(x))
+    y = fitted(obj) + (diag(nrow(x)) + obj$lambda * W) %*% rnorm(nrow(x), 0, sqrt(obj$fit$s2))
+    x[, ypos] = y
+    x <- data.frame(x)
+  }
+  
+  # Lagged SAR lm
+  generate.data.lagsarlm <- function(obj, W, dep.var) {
+    x = as.matrix(cbind(obj$y,obj$X[,-1]))
+    yname <- dep.var
+    ypos = 1
+    y = solve(diag(nrow(x)) - obj$rho * W,obj$fitted + rnorm(nrow(x), 0, sqrt(obj$s2)))
+    x[,ypos] = y
+    colnames(x)[ypos] = yname
+    x <- data.frame(x)
+  }
+  
+  # What kind of model is it
+  model.type <- function(obj) {
+    if (inherits(obj, "lm")) return("lm")
+    if (inherits(obj, "Spautolm")) return("spautolm")
+    if (!inherits(obj, "Sarlm")) stop("Unsupported regression type.")
+    if (obj$type == "error") return("errorsarlm")
+    if (obj$type == "lag") return("lagsarlm") }
+  
+  # Do the simulation
+  switch(model.type(obj),
+    lm = generate.data.lm(obj, W, dep.var),
+    lagsarlm = generate.data.lagsarlm(obj, W, dep.var),
+    errorsarlm = generate.data.errorsarlm(obj, W, dep.var), 
+    spautolm = generate.data.smalm(obj, W, dep.var))
+}
+
+R.utils::reassignInPackage("generate.lm.data", "GWmodel", generate.lm.data)
+
+
+mgwrt.mlr <- function(formula, data, ..., approach = "AIC") {
+  bw <- bw.gwr3(formula, data, ..., approach)
+  gwr.model <- gwr.mixed(formula, data, ...)
+  mlm <- lm(formula, as(data, "data.frame"))
+  var.n <- length(mlm$coefficients)
+  coefs <- gwr.model$SDF@data[, 1:var.n]
+  sds <- gwr.model$SDF@data[[, (var.n + 6):(var.n * 2 + 5)]]-1
+  globcoef <- mlm$coefficients
+  indep.vars <- colnames(mlm$x)
+  tvals <- c()
+  for (i in 1:var.n) {
+    tvals <- cbind(tvals, (coefs[, i] - globcoef[i])/sds[, 
+                                                         i])
+  }
+  tvals
 }
