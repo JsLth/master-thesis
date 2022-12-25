@@ -124,15 +124,19 @@ fix_retweet_texts <- function(tweets) {
 
 
 clear_memory <- function() {
-  obj <- c(
-    "cohesion_plot", "t", "pred", "tmap_stats", "tmap_polarity", "tmap_counts",
-    "kreise_polarity", "kreise_authors", "kreise_counts", "is_retweet",
-    "ts_plot", "tweets_ts", "lsx_model", "lsx_model_irlba", "lsx_model_rsvd",
-    "lsx_model_svds", "model", "tw_corpus", "tweets", "tweets_only_og",
-    "tw_dfm"
+  keep <- c(
+    "adaptive", "approach", "tweets_by_author", "tweets_by_author_25",
+    "tweets_by_author_50", "tweets_by_author_100", "tweets", "kreise_polarity",
+    "mlmodel", "mlmodel_25", "mlmodel_50", "mlmodel_100", "msgwr_model",
+    "mixed_model", "robust.se", "ioer_data_join", "inkar_data_join",
+    "amenity_data_join", "context", "global_model", "global_model_25",
+    "global_model_50", "global_model_100", "kreise", "coords", "msgwr_model_25",
+    "msgwr_model_50", "msgwr_model_100"
   )
   
-  suppressWarnings(rm(list = obj, envir = .GlobalEnv))
+  clear <- setdiff(ls(envir = .GlobalEnv), keep)
+  
+  suppressWarnings(rm(list = clear, envir = .GlobalEnv))
   gc()
 }
 

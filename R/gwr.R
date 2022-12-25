@@ -104,10 +104,10 @@ model_selection <- function(formula,
       bind_cols(exp_specs, .) %>%
       set_rownames(NULL)
     
-    modelselect_df$AIC <- round(modelselect_df$AIC, 1)
-    modelselect_df$AICc <- round(modelselect_df$AICc, 1)
-    modelselect_df$BIC <- round(modelselect_df$BIC, 1)
-    modelselect_df$RSS.gw <- round(modelselect_df$RSS.gw, 2)
+    modelselect_df$AIC <- round(modelselect_df$AIC, 3)
+    modelselect_df$AICc <- round(modelselect_df$AICc, 3)
+    modelselect_df$BIC <- round(modelselect_df$BIC, 3)
+    modelselect_df$RSS.gw <- round(modelselect_df$RSS.gw, 3)
     modelselect_df$gw.R2 <- round(modelselect_df$gw.R2, 3)
     
     kab <- kableExtra::kbl(

@@ -6,7 +6,6 @@ pkgs <- c(
   
   # I/O
   "httr2", "jsonlite", "ows4R", "readr", "arrow", "sfarrow", "osmextract",
-  "giscoR",
   
   # Data cleaning
   "emoji", "lubridate", "zoo", "xml2", "randomForest", "broom", "broom.mixed",
@@ -23,16 +22,14 @@ pkgs <- c(
   "sf", "sp",  "stars", "starsExtra", "gstat",
   
   # Spatial statistics
-  "spdep", "spgwr", "GWmodel", "lme4", "merTools", "nortest", "clubSandwich",
+  "spdep", "spgwr", "GWmodel", "lme4", "merTools", "nortest",
   
   # Visualization
-  "tmap", "ggpubr", "ggnewscale", "Cairo", "patchwork", "gridExtra", "ggrastr",
-  "latex2exp", "extrafont", "classInt", "RColorBrewer", "pheatmap", "ggrepel",
-  "qqplotr",
+  "tmap", "ggpubr", "Cairo", "patchwork", "gridExtra", "ggrastr", "classInt",
+  "RColorBrewer", "pheatmap", "ggrepel", "qqplotr",
   
   # LaTeX
-  "kableExtra", "stargazer", "modelsummary", "huxtable", "flextable",
-  "ltxsparklines",
+  "kableExtra", "stargazer", "modelsummary", "ltxsparklines",
   
   # Parallelization
   "furrr", "multidplyr", "progressr"

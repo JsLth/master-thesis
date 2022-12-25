@@ -555,6 +555,9 @@ tmap_save(ind_maps, "plots/ind_maps.png", device = png)
 # Center and scale context variables
 kreise_polarity_context <- datawizard::standardize(kreise_polarity_context)
 
+# Convert to sp object
+kreise_polarity_context_sp <- as_Spatial(st_as_sf(kreise_polarity_context))
+
 # Create LaTeX table of variables and their descriptions
 # Table 3.3
 kableExtra::kbl(
@@ -786,11 +789,24 @@ mlmodel_100 <- callr::r(
 
 # Heteroscedasticity-robust standard errors
 # Takes an extremely long time, thus done manually instead of in a loop
-robust.se <- list()
-robust.se[[1]] <- vcovCR(mlmodel, type = "CR2")
-robust.se[[2]] <- vcovCR(mlmodel_25, type = "CR2")
-robust.se[[3]] <- vcovCR(mlmodel_50, type = "CR2")
-robust.se[[4]] <- vcovCR(mlmodel_100, type = "CR2")
+# The results are stored as attributes so that they can be processed by
+# functions further down the line
+attr(mlmodel, "vcov") <- vcovCR(mlmodel, type = "CR2")
+attr(mlmodel_25, "vcov") <- vcovCR(mlmodel_25, type = "CR2")
+attr(mlmodel_50, "vcov") <- vcovCR(mlmodel_50, type = "CR2")
+attr(mlmodel_100, "vcov") <- vcovCR(mlmodel_100, type = "CR2")
+
+attr(mlmodel, "vcov") <- merDeriv::bread.lmerMod(mlmodel)
+attr(mlmodel_25, "vcov") <- sandwich::vcovHC(mlmodel_25)
+attr(mlmodel_50, "vcov") <- sandwich::vcovHC(mlmodel_50)
+attr(mlmodel_100, "vcov") <- sandwich::vcovHC(mlmodel_100)
+
+gm <- data.frame(
+  raw = c("nobs", "r2.marginal", "r2.conditional", "aic", "bic", "rmse"),
+  clean = c("Num. Obs.", "R2 Marginal", "R2 Conditional", "AIC", "BIC", "RMSE"),
+  fmt = c(0, 3, 3, 0, 0, 3),
+  omit = FALSE
+)
 
 # Create LaTeX output for multilevel model
 # Table 4.2
@@ -798,24 +814,23 @@ modelsummary(
   models = c(mlmodel, mlmodel_25, mlmodel_50, mlmodel_100),
   effects = "fixed",
   output = "latex",
-  fmt = 3,
+  fmt = list(estimate = 3, std.error = 3, r2.marginal = 3, r2.conditional = 3,
+             aic = 0, bic = 0, rmse = 3),
   estimate = "{estimate}{stars}",
   statistic = "{std.error}",
-  vcov = function(x) as.matrix(clubSandwich::vcovCR(x, type = "CR2")),
   stars = c("$^{*}$" = 0.1, "$^{**}$" = 0.05, "$^{***}$" = 0.01),
   coef_rename = rename_vars,
   gof_map = gm,
   col.names = c("Context variables", "Model 1", "Model 2", "Model 3", "Model 4"),
-  title = "Fixed effect sizes, significance levels and heteroskedasticity-robust standard errors of the multilevel regression models",
+  title = "Fixed effect sizes, significance levels and cluster-robust standard errors of the multilevel regression models",
   caption.short = "Fixed effects of the multilevel regression models",
-  label = "multilevel",
   booktabs = TRUE,
   escape = FALSE
 ) %>%
   kableExtra::footnote("$^{*}$p$<$0.1; $^{**}$p$<$0.05; $^{***}$p$<$0.01", escape = FALSE, footnote_as_chunk = TRUE) %>%
   add_header_above(c(" ", "Model specification" = 4)) %>%
   kable_paper() %>%
-  str_replace(fixed("\\centering"), "\\label{tab:multilevel}\\n\\centering\\n\\small") %>%
+  str_replace(fixed("\\centering"), "\\label{tab:multilevel}\n\\centering") %>%
   cat(file = "plots/multilevel_tab.tex")
 
 # Plot exploratory effect ranges
@@ -889,6 +904,8 @@ mlmap <- tm_shape(st_union(kreise)) +
   #tm_scale_bar(text.size = 0.35, width = 0.2, position = c("RIGHT", "BOTTOM")) +
   tm_layout(
     asp = 0.8,
+    frame = FALSE,
+    frame.lwd = NA,
     outer.margins = c(-0.35, 0, -0.35, -0.15),
     panel.label.bg.color = NA,
     panel.label.fontface = "bold",
@@ -979,10 +996,6 @@ ggsave("plots/qqplot.pdf", qq, device = cairo_pdf, width = 8, height = 8)
 ci_plot_global <- plot_ci(global_model, global_model_25, global_model_50, global_model_100)
 ggsave("plots/ci_plot_global.pdf", ci_plot_global, device = cairo_pdf, height = 8, width = 10)
 
-kreise_residuals <- cbind(kreise, residuals(global_model_25))
-
-# Convert to sp object
-kreise_polarity_context_sp <- as_Spatial(st_as_sf(kreise_polarity_context))
 
 # Try out all model combinations and select the one with best diagnostics
 msel <- model_selection(
@@ -1171,17 +1184,6 @@ mixed_sf <- st_as_sf(gwr_mixed$SDF) %>%
   mutate(name = factor(str_remove(name, fixed("_L")), levels = names(var_sel))) %>%
   mutate(name = recode(name, !!!sel_eng)) %>%
   dplyr::select(name, value)
-
-t <- gwr.mixed.bootstrap(
-  formula,
-  kreise_polarity_context_sp,
-  fixed.vars = setdiff(names(var_sel), spatial_vars),
-  kernel = kernel,
-  approach = approach,
-  adaptive = adaptive,
-  R = 99
-)$SDF %>%
-  st_as_sf()
 
 # Plot results of SGWR
 # Figure 4.9

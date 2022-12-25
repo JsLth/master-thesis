@@ -1,10 +1,15 @@
 source("R/packages.R")
 
-pvalue_stars <- function(x, p, cutoff = c(0.1, 0.05, 0.005), left_align = FALSE) {
+# Takes a vector of estimates x and a vector of p-values p and appends
+# significance stars based on a set of given cutoff values
+pvalue_stars <- function(x, p, cutoff = c(0.1, 0.05, 0.01), left_align = FALSE, latex = FALSE) {
   if (left_align) {
     stars <- c("*  ", "** ", "***")
   } else {
     stars <- c("*", "**", "***")
+  }
+  if (latex) {
+    stars <- paste0("$^{", stars, "}$")
   }
   if (!missing(x)) {
     dplyr::case_when(
@@ -24,13 +29,25 @@ pvalue_stars <- function(x, p, cutoff = c(0.1, 0.05, 0.005), left_align = FALSE)
 }
 
 
-tidy_custom.lmerMod <- function(x, ...) {
-  s <- p_value_betwithin(x)
-  names(s) <- c("term", "p.value")
-  s
+# S3 method for modelsummary to compute between-within p-values and
+# cluster-robust standard errors for objects of class lmer
+tidy_custom.lmerMod <- function(x, latex = TRUE, left_align = FALSE, ...) {
+  vcov <- attr(x, "vcov")
+  se <- standard_error(x, vcov = vcov, method = "betwithin")$SE
+  ci <- ci_betwithin(x, vcov = vcov, ...)
+  pval <- p_value_betwithin(x, vcov = vcov)$p
+  broom.mixed::tidy(x, effect = "fixed", cont.int = TRUE) %>%
+    mutate(
+      std.error = se,
+      p.value = pval,
+      conf.low = ci[, "CI_low"],
+      conf.high = ci[, "CI_high"],
+      stars = pvalue_stars("", pval, latex = latex, left_align = left_align)
+    )
 }
 
 
+# Creates a latex table containing summary statistics of the top `n` districts
 district_summary <- function(data, kreise, n = 20) {
   which <- kreise %>%
     arrange(desc(authors)) %>%
@@ -77,6 +94,8 @@ district_summary <- function(data, kreise, n = 20) {
 }
 
 
+# Function to plot regression estimates along with their confidence intervals
+# and significance stars
 plot_ci <- function(..., level = 0.95, cutoff = c(0.1, 0.05, 0.005), limits = NULL, bottom = TRUE, left = TRUE) {
   models <- list(...)
   
@@ -94,15 +113,14 @@ plot_ci <- function(..., level = 0.95, cutoff = c(0.1, 0.05, 0.005), limits = NU
         sig = pvalue_stars(p = summ$p.value, left_align = TRUE)
       )
     } else if (inherits(m, "lmerMod")) {
-      summ <- broom.mixed::tidy(m, conf.int = TRUE, effects = "fixed")
-      p_val <- parameters::p_value_betwithin(m)$p
+      summ <- tidy_custom.lmerMod(m, level = level, latex = FALSE, left_align = TRUE)
       var_names <- c("(Intercept)" = "(Intercept)", sel_eng)[summ$term]
       ci <- tibble(
         variable = factor(var_names, levels = rev(var_names)),
         coef = summ$estimate,
         lower = summ$conf.low,
         upper = summ$conf.high,
-        sig = pvalue_stars(p = p_val, left_align = TRUE)
+        sig = summ$stars
       )
     }
     
@@ -141,34 +159,8 @@ plot_ci <- function(..., level = 0.95, cutoff = c(0.1, 0.05, 0.005), limits = NU
 }
 
 
-plot_effectsize <- function(...) {
-  models <- list(...)
-  data <- map_dfr(seq_along(models), function(i) {
-    m <- models[[i]]
-    effectsize(m, method = "posthoc", type = "epsilon") %>%
-      as_tibble() %>%
-      filter(!Parameter %in% "(Intercept)") %>%
-      mutate(Parameter = sel_eng[Parameter], i = paste("Model", i)) %>%
-      mutate(Parameter = factor(Parameter, levels = rev(unique(Parameter))))
-  })
-  
-  ggplot(data, aes(x = Parameter, y = Std_Coefficient)) +
-    geom_point() +
-    geom_errorbar(aes(ymin = CI_low, ymax = CI_high), width = 0.25) +
-    coord_flip() +
-    facet_wrap(~i, ncol = 2) +
-    scale_y_continuous(breaks = c(-0.06, -0.01, 0.01, 0.06, 0.16)) +
-    theme_bw() +
-    labs(x = NULL, y = )
-    theme(
-      panel.grid.major.y = element_blank(),
-      panel.grid.major.x = element_line(linetype = "dashed", color = "gray70"),
-      panel.grid.minor = element_blank(),
-      strip.background = element_blank()
-    )
-}
-
-
+# Function to plot "caterpillar" plots or dotplots that illustrate the random
+# effects of a mixed effect model
 dotplot <- function(data,
                     group,
                     terms,
@@ -231,6 +223,8 @@ dotplot <- function(data,
     labs(x = "Districts", y = "Coefficient")
 }
 
+
+# Auxiliary function for tidytext::reorder_within
 labeller <- function(x, sep = "___") {
   x <- x[order(sapply(strsplit(x, sep), "[", 2))]
   reg <- paste0(sep, ".+$")
@@ -290,6 +284,7 @@ construct_mer_formula <- function(..., data, grp = NULL) {
 }
 
 
+# Plots VIF values along with their confidence intervals
 plot_vif <- function(..., colors = c("#3aaf85", "#1b6ca8", "#cd201f"), size_point = 4, size_line = 0.8) {
   dots <- list(...)
   dat <- map_dfr(seq_along(dots), function(i) {
@@ -401,6 +396,7 @@ plot_vif <- function(..., colors = c("#3aaf85", "#1b6ca8", "#cd201f"), size_poin
 }
 
 
+# Plots residual QQ plots for a given model
 plot_qq <- function(...,
                     alpha_level = 0.2,
                     size_point = 2,
@@ -416,16 +412,18 @@ plot_qq <- function(...,
     resid <- sort(residuals(dat))
     data.frame(res = resid, model = paste("Model", i))
   })
-  
+
   qq_stuff <- list(
     qqplotr::stat_qq_band(alpha = alpha_level, detrend = detrend),
-    qqplotr::stat_qq_point(
-      shape = 16,
-      stroke = 0,
-      size = size_point,
-      colour = colors[2],
-      alpha = dot_alpha_level,
-      detrend = detrend
+    ggrastr::rasterise(
+      qqplotr::stat_qq_point(
+        shape = 16,
+        stroke = 0,
+        size = size_point,
+        colour = colors[2],
+        alpha = dot_alpha_level,
+        detrend = detrend
+      ), dpi = 1000
     ),
     qqplotr::stat_qq_line(linewidth = size_line, colour = colors[1], detrend = detrend)
   )
