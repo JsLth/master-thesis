@@ -12,9 +12,10 @@
 # - filter out low-polarity terms
 # - compute VIF, Morans' I and non-stationarity (using Monte Carlo) for each variable
 # - look into bootstrap GWR for improving inference
-# - Remove graduate? Moderate VIF
-# - Remove random structure of non-varying variables?
-# - Create a cool network plot to make R file structure neater :)
+# - remove graduate? Moderate VIF
+# - remove random structure of non-varying variables?
+# - create a cool network plot to make R file structure neater :)
+# - last minute plot on the increasing deviation when counting down from largest districts?
 #
 
 # Load packages, lists and utility functions
@@ -552,6 +553,17 @@ ind_maps <- tm_shape(kreise) +
   tm_facets(ncol = 4)
 tmap_save(ind_maps, "plots/ind_maps.png", device = png)
 
+# Figure A.5
+dev_plot <- ggplot(kreise_polarity %>%
+         mutate(dev = abs(polarity - mean(tweets_by_author$polarity, na.rm = TRUE))),
+       aes(x = reorder(ags, authors, decreasing = TRUE), y = dev, group = 1)) +
+  geom_point(alpha = 0.2) +
+  geom_smooth(size = 1, color = "black") +
+  labs(x = "Districts (descending by sample size)", y = "Absolute deviation from the global mean") +
+  theme_bw() +
+  theme(panel.grid.major.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank())
+ggsave("plots/devplot.pdf", plot = dev_plot, device = cairo_pdf, height = 7, width = 10)
+
 # Center and scale context variables
 kreise_polarity_context <- datawizard::standardize(kreise_polarity_context)
 
@@ -787,7 +799,7 @@ mlmodel_100 <- callr::r(
   spinner = TRUE
 )
 
-# Heteroscedasticity-robust standard errors
+# Cluster-robust standard errors
 # Takes an extremely long time, thus done manually instead of in a loop
 # The results are stored as attributes so that they can be processed by
 # functions further down the line
@@ -795,11 +807,6 @@ attr(mlmodel, "vcov") <- vcovCR(mlmodel, type = "CR2")
 attr(mlmodel_25, "vcov") <- vcovCR(mlmodel_25, type = "CR2")
 attr(mlmodel_50, "vcov") <- vcovCR(mlmodel_50, type = "CR2")
 attr(mlmodel_100, "vcov") <- vcovCR(mlmodel_100, type = "CR2")
-
-attr(mlmodel, "vcov") <- merDeriv::bread.lmerMod(mlmodel)
-attr(mlmodel_25, "vcov") <- sandwich::vcovHC(mlmodel_25)
-attr(mlmodel_50, "vcov") <- sandwich::vcovHC(mlmodel_50)
-attr(mlmodel_100, "vcov") <- sandwich::vcovHC(mlmodel_100)
 
 gm <- data.frame(
   raw = c("nobs", "r2.marginal", "r2.conditional", "aic", "bic", "rmse"),
@@ -859,7 +866,7 @@ ci_plot <- plot_ci(mlmodel, mlmodel_25, mlmodel_50, mlmodel_100, limits = c(-0.1
 ggsave("plots/ci_plot.pdf", ci_plot, device = cairo_pdf, height = 8, width = 10)
 
 # Plot VIF diagnostic
-# Figure A.5
+# Figure A.6
 vif_plot <- plot_vif(mlmodel, mlmodel_25, mlmodel_50, mlmodel_100)
 ggsave("plots/vif_plot.pdf", vif_plot, device = cairo_pdf, height = 8, width = 8)
 
@@ -974,6 +981,7 @@ global_model_100 <- lm(formula_100, kreise_polarity_context)
 
 stargazer(global_model, global_model_25, global_model_50, global_model_100, type = "text")
 
+# Figure A.7
 qq <- plot_qq(
   mlmodel, mlmodel_25, mlmodel_50, mlmodel_100,
   global_model, global_model_25, global_model_50, global_model_100
