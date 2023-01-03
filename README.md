@@ -14,8 +14,8 @@ The code files are divided into workflow files and auxiliary files. Workflow fil
 ### Workflow files
 
 -   [**main.R**](./R/main.R): Contains the main workflow to prepare, scale, model and plot the results
--   [**collect_tweets.R**](./R/collect_tweets.R): Collects tweets for the earliest possible day and saves them to ./data/tweets
--   [**geocode.R**](./R/geocode.R): Geocodes the earliest non-geocoded tweet package present in ./data/tweets and saves them to ./data/geo
+-   [**collect_tweets.R**](./R/collect_tweets.R): Collects tweets for the earliest possible day and saves them to `./data/tweets`
+-   [**geocode.R**](./R/geocode.R): Geocodes the earliest non-geocoded tweet package present in ./data/tweets and saves them to `./data/geo`
 -   [**read_context_bulk**](./R/read_context_bulk.R): Reads context variables from INKAR, IOER and OSM
 
 ### Auxiliary files
