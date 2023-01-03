@@ -4,7 +4,7 @@ This repository holds the code associated to the Master's thesis called "Estimat
 
 ## Data
 
-Tweet data is collected using the Twitter API. Geo-information is added to the tweet dataset by geocoding self-provided user profile locations. Context data is taken from OpenStreetMap the IÖR monitor and the INKAR database. Most data files are stripped from the repository due to copyright issues. Tweet data is dehydrated to only contain tweet IDs, polarity scores and locations (see `data/tweet_ids.geojson`).
+Tweet data is collected using the Twitter API. Geo-information is added to the tweet dataset by geocoding self-provided user profile locations. Context data is taken from OpenStreetMap the IÖR monitor and the INKAR database. Most data files are stripped from the repository due to copyright issues. Tweet data is dehydrated to only contain tweet IDs, polarity scores and locations (see `./data/tweet_ids.geojson`).
 
 ## Structure
 
@@ -16,7 +16,7 @@ The code files are divided into workflow files and auxiliary files. Workflow fil
 -   [**main.R**](./R/main.R): Contains the main workflow to prepare, scale, model and plot the results
 -   [**collect_tweets.R**](./R/collect_tweets.R): Collects tweets for the earliest possible day and saves them to `./data/tweets`
 -   [**geocode.R**](./R/geocode.R): Geocodes the earliest non-geocoded tweet package present in ./data/tweets and saves them to `./data/geo`
--   [**read_context_bulk**](./R/read_context_bulk.R): Reads context variables from INKAR, IOER and OSM
+-   [**read_context_bulk**](./R/read_context_bulk.R): Reads context variables from INKAR, IOER and OSM and saves them to `./data/context`
 
 ### Auxiliary files
 
