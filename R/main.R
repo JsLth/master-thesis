@@ -1085,7 +1085,7 @@ kbl(
   col.names = c("", "Model 1", "Model 2", "Model 3", "Model 4"),
   booktabs = TRUE,
   align = c("l", "c", "c", "c", "c"),
-  caption = "Adaptive multi-scale bandwidth sizes estimated by fitting an MSGWR model with an exponential kernel. Low bandwidth sizes indicate spatial non-stationarity.",
+  caption = "Adaptive multi-scale bandwidth sizes estimated by fitting an MSGWR model with an exponential kernel. Low bandwidth sizes indicate spatial non-stationarity. Adaptive bandwidth sizes are to be seen in relation to the number of German districts (n = 400).",
   caption.short = "Adaptive multi-scale bandwidth sizes",
   label = "msbw"
 ) %>%
@@ -1110,7 +1110,7 @@ msgwr_plot <- tm_shape(st_union(msgwr_sf)) +
     panel.label.bg.color = NA,
     panel.label.fontface = "bold"
   )
-tmap_save(msgwr_plot, "plots/test.png", device = png)
+
 msgwr_p <- gwr.t.adjust(msgwr_model_50)$SDF %>%
   st_as_sf() %>%
   tidyr::pivot_longer(paste(names(var_sel), "p_bo", sep = "_")) %>%
@@ -1138,9 +1138,6 @@ msgwr_p_plot <- tm_shape(st_union(msgwr_p)) +
     panel.label.bg.color = NA,
     panel.label.fontface = "bold"
   )
-tmap_save(msgwr_p_plot, "plots/test2.png", device = png)
-
-msgwr_sf <- msgwr_sf 
 
 
 # Basic model ----

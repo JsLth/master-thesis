@@ -39,8 +39,18 @@ vignettes/*.pdf
 .Renviron
 <<<<<<< HEAD
 
+.RDataTmp
+Masterarbeit.RData
+
 # data
 data_old/
-photon/
+LaTeX/
+lss_cache/
+tmap_style_previews/
+Forschungsseminar.pptx
+Konzept Masterarbeit.pptx
+Forschungsseminar_16zu9.pptx
+MA_Zwischenstand.pptx
+plots/network_files/
 =======
 >>>>>>> b33b4128ee41a4167075f19a4af61ab119e9c73e

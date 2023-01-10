@@ -175,7 +175,7 @@ sel_eng <- c(
   überschwemmungsgefahr = "Flood exposition",
   erreichbarkeit_öpnv = "Public transport",
   naturbetont = "Natural areas",
-  stimmenanteile_afd = "Votes for AfD",
+  stimmenanteile_afd = "Right-wing votership",
   stimmenanteile_grüne = "Votes for Greens",
   stimmenanteile_linke = "Votes for Left",
   sachinvestitionen = "Capital expenditure",
