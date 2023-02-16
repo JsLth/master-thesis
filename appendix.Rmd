@@ -1,0 +1,624 @@
+---
+title: "Appendix"
+author: "Jonas Lieth"
+date: "`r Sys.Date()`"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+In this appendix, we present our analytical workflow by walking through the code that was used to produce the main results. The appendix is structured using R Markdown and making use of annotated code chunks. The code presented here consists only of code that is immediately evaluated. It makes use of internal functions that are not described in this document, but can be examined in the associated Github repository.
+
+In the first code chunk, we source the aforementioned code files containing further internal functions. We also set up global options and parallelization.
+
+```{r,eval=FALSE}
+# Load packages, lists and utility functions
+source("R/packages.R")
+source("R/globals.R")
+source("R/gather.R")
+source("R/boundaries.R")
+source("R/scaling.R")
+source("R/search_tweets.R")
+source("R/read_context.R")
+source("R/gwr.R")
+source("R/effects.R")
+source("R/utils.R")
+
+# Set up verbosity
+options(quanteda_verbose = TRUE)
+options(rgdal_show_exportToProj4_warnings = "none")
+options(modelsummary_stars_note = TRUE)
+options(modelsummary_get = "all")
+
+# Set up parallelization
+workers <- round(availableCores() * 0.8, 0)
+plan(multisession, workers = workers)
+```
+
+Tweets were collected using the following code chunk:
+
+```{r,eval=FALSE}
+# Detect days that are not collected yet
+search_day <- free_dates()[1]
+
+# Collect tweets and save them to data/tweets
+collect_tweets(
+  query = sprintf("(%s) lang:de -is:verified", paste(keywords, collapse = " OR ")),
+  day = search_day,
+  expansion = c("geo.place_id", "author_id"),
+  place.fields = c("full_name", "id", "contained_within", "country_code",
+                   "geo", "name", "place_type"),
+  user.fields = c("location", "created_at", "description"),
+  tweet.fields = c("author_id", "created_at", "geo", "lang", "source")
+)
+```
+
+The `free_dates` function specifies which days from the last 6 days are not yet collected and selects the earliest. `collect_tweets` then queries the "Search tweets" endpoint from the Twitter API and repeatedly pulls batches of 100 tweets, starting from 23:59 and going back in time until it reaches 0:00 of the same day. The tweets are parsed using the `jsonlite` package, appended and stored as RDS files for further use. Requested metadata mainly include information on geography, time and source.
+
+These RDS files constitute the basis for geocoding. The `not_geocoded_yet` function returns the names of the RDS tweet files that have no corresponding georeference file. `geocode_day` then reads the first of these files and batch geocodes the `profile_location` field. The geocoding results are filtered by their type (OSM keys boundary, natural and place), scope (Germany) and scale (street, locality, district, city).
+
+```{r,eval=FALSE}
+# Start the local photon server
+if (!photon_running()) {
+  start_photon()
+}
+
+# Detect tweet packages that are not yet geocoded and return the first one
+to_geocode <- not_geocoded_yet()[1]
+
+# Geocode and save to data/geo
+geocode_day(to_geocode, size = 3, lang = "en")
+```
+
+Successfully geocoded RDS tweet files can be compiled to a simple features tibble. The compiled dataset is stored in the Feather format for further use.
+
+```{r,eval=FALSE}
+compile_tweets <- TRUE
+
+if (compile_tweets) {
+  tweets <- path_to_dt(filter = TRUE, geocoded = TRUE) %>%
+    as_tibble() %>%
+    st_as_sf() %>%
+    st_transform(3035)
+  st_write_feather(tweets, "data/tweets_cmp.feather")
+} else {
+  tweets <- st_read_feather("data/tweets_cmp.feather")
+}
+```
+
+In the next code chunk, the tweet texts are preprocessed before being converted to a document-feature matrix. Retweet and response indicators are removed from the raw texts. Since retweet texts are capped and do not contain the entire original texts, we attempted to match them with their original texts by comparing the first 80 characters. A second dataset is created that only contains original tweets in order to prevent text analysis results from being biased towards tweets with many retweets.
+
+```{r,eval=FALSE}
+tweets$text <- tweets$text %>%
+  str_remove(regex("^RT ")) %>% # remove retweet indicators
+  str_remove_all("@[A-Za-z0-9_]+:?\\s") # remove response indicators
+
+tweets <- fix_retweet_texts(tweets)
+tweets_stable <- tweets
+
+tweets_only_og <- tibble(
+  text = dtext <- unique(tweets$text),
+  did = seq_along(dtext)
+)
+```
+
+A corpus is created from all original tweets using the `quanteda` package. Subsequently, the corpus is tokenized and turned into a document-feature matrix.
+
+```{r,eval=FALSE}
+# Create corpus from tweet data
+tw_corpus <- corpus(tweets_only_og, docid_field = "did", text_field = "text")
+
+# Create document-feature matrix
+tw_tokens <- tw_corpus %>%
+  tokens(
+    remove_punct = TRUE,
+    remove_symbols = TRUE,
+    remove_numbers = TRUE,
+    remove_url = TRUE,
+    remove_separators = FALSE,
+    split_hyphens = FALSE,
+    split_tags = TRUE
+  ) %>%
+  tokens_remove(stopwords("de", source = "marimo"))
+tw_dfm <- tw_tokens %>%
+  dfm() %>%
+  dfm_trim(min_termfreq = 50, min_docfreq = 5) %>%
+  dfm_select(c(" ", "\\n"), valuetype = "regex", selection = "remove")
+```
+
+An LSS model is fit from this document-feature matrix using the `textmodel_lss` function from the `LSX` package. The hyperparameter is selected with the help of Watanabe's cohesion statistic which can be computed using the `LSX::cohesion` function.
+
+```{r,eval=FALSE}
+# Fit a model with an arbitrary hyperparameter
+set.seed(rseed)
+lsx_model <- textmodel_lss(
+  tw_dfm,
+  seeds = as.seedwords(as.list(seed)),
+  auto_weight = TRUE,
+  k = 500,
+  cache = TRUE,
+  engine = "rsvd",
+)
+
+# Plot cohesion statistic and highlight an optimal hyperparameter
+cohesion_plot <- LSX::cohesion(lsx_model) %>%
+  ggplot(aes(x = k, y = smoothed)) +
+  geom_line(na.rm = TRUE) +
+  geom_point(aes(x = k, y = raw), alpha = 0.2, na.rm = TRUE) +
+  geom_vline(xintercept = k) +
+  theme_bw() +
+  scale_x_continuous(expand = c(0, 0)) +
+  ylab("Cohesion") +
+  theme(plot.margin = ggplot2::margin(0.2, 0.5, 0.2, 0.2, "cm"))
+
+# Set hyperparameter
+k <- 299
+
+# Fit final text scaling model
+set.seed(rseed) # arbitrary seed of 1111
+lsx_model <- textmodel_lss(
+  tw_dfm,
+  seeds = as.seedwords(as.list(seed)),
+  auto_weight = TRUE,
+  k = k,
+  cache = TRUE,
+  engine = "rsvd"
+)
+```
+
+For seedword validation, a function called `lss_loocv` performs both a basic leave-one-out approach that fits multiple models, leaving out a seedword with each iteration and measures the difference between the resulting estimates.
+
+```{r,eval=FALSE}
+term_validation <- lss_loocv(lsx_model)
+```
+
+The fitted model is finally used to predict a document-level polarity estimate:
+
+```{r,eval=FALSE}
+pred <- predict(
+  lsx_model,
+  newdata = tw_dfm,
+  se_fit = TRUE,
+  density = FALSE,
+  rescaling = TRUE,
+  min_n = 4
+)
+```
+
+Both density functions and normality tests are computed using an internal function, which refits the text model multiple times. With each iteration the function adds two seedwords (one of each side) of the final seedword selection in order to test the marginal impact of adding two more seedwords.
+
+```{r,eval=FALSE}
+dn <- plot_multiple_density(tw_dfm, seed, k = k, engine = "rsvd", seed = rseed)
+
+# Output list contains a density plot...
+dn$density
+
+# ... as well as a dataframe containing the results of the Anderson-Darling
+# normality test
+dn$normality
+```
+
+To conclude text analysis, the estimates are combined with their corresponding tweets. The original tweets are then recombined with the complete dataset using a right join. This way, retweets are assigned the polarity estimate of their original tweet.
+
+```{r,eval=FALSE}
+# Combine prediction values with original tweets
+tweets_only_og <- tweets_only_og %>%
+  mutate(polarity = pred$fit, se = pred$se)
+
+# Join original tweets with complete tweet dataset
+tweets_pred <- right_join(
+  tweets_only_og,
+  tweets[c("text", "id", "author_id", "tweet_time")],
+  by = "text"
+) %>%
+  as_tibble() %>%
+  st_as_sf()
+```
+
+For data aggregation, we tap into the Web Feature Service of the Federal Agency for Cartography and Geodesy (BKG) to download district polygons ("Kreise") for Germany. Some districts have ambiguous names if the largest city of a district is regarded as independent ("kreisfreie Stadt") and are fixed to be unique.
+
+```{r,eval=FALSE}
+# Download district polygons
+kreise <- get_admin("Kreis")
+
+# Fix non-unique names
+kreise <- kreise %>%
+  group_by(gen) %>%
+  mutate(ags = ags, gen = make_kreis_unique(gen)) %>%
+  ungroup()
+
+# Extract raw coordinates of polygon centroids
+coords <- kreise %>%
+  st_geometry() %>%
+  st_centroid() %>%
+  st_coordinates()
+```
+
+This is the point where we first define the four models of the spatial analysis:
+
+```{r,eval=FALSE}
+tweets_pred_25 <- tweets_pred[abs(tweets_pred$polarity) >= 0.25, ]
+tweets_pred_50 <- tweets_pred[abs(tweets_pred$polarity) >= 0.5, ]
+tweets_pred_100 <- tweets_pred[abs(tweets_pred$polarity) >= 1, ]
+```
+
+We aggregate the document-level polarity scores by author by computing the median of polarity and standard error and selecting the first respective geometry.
+
+```{r,eval=FALSE}
+tweets_by_author <- tweets_pred %>%
+  as_tibble() %>%
+  group_by(author_id) %>%
+  group_split()
+with_progress({
+  p <- progressor(steps = length(unique(tweets_pred$author_id)))
+  tweets_by_author <- tweets_by_author %>%
+    future_map_dfr(aggregate_author) %>%
+    st_as_sf() %>%
+    st_set_crs(3035)
+})
+
+
+tweets_by_author_25 <- tweets_pred_25 %>%
+  as_tibble() %>%
+  group_by(author_id) %>%
+  group_split()
+with_progress({
+  p <- progressor(steps = length(unique(tweets_pred_25$author_id)))
+  tweets_by_author_25 <- tweets_by_author_25 %>%
+    future_map_dfr(aggregate_author) %>%
+    st_as_sf() %>%
+    st_set_crs(3035)
+})
+
+
+tweets_by_author_50 <- tweets_pred_50 %>%
+  as_tibble() %>%
+  group_by(author_id) %>%
+  group_split()
+with_progress({
+  p <- progressor(steps = length(unique(tweets_pred_50$author_id)))
+  tweets_by_author_50 <- tweets_by_author_50 %>%
+    future_map_dfr(aggregate_author) %>%
+    st_as_sf() %>%
+    st_set_crs(3035)
+})
+
+
+tweets_by_author_100 <- tweets_pred_100 %>%
+  as_tibble() %>%
+  group_by(author_id) %>%
+  group_split()
+with_progress({
+  p <- progressor(steps = length(unique(tweets_pred_100$author_id)))
+  tweets_by_author_100 <- tweets_by_author_100 %>%
+    future_map_dfr(aggregate_author) %>%
+    st_as_sf() %>%
+    st_set_crs(3035)
+})
+```
+
+After this, we immediately aggregate these author-level aggregates further onto the district level using spatial aggregation and the mean. Missing values are omitted.
+
+```{r,eval=FALSE}
+# Aggregate onto district-level
+kreise_polarity <- aggregate(
+  tweets_by_author["polarity"],
+  by = kreise,
+  FUN = mean,
+  join = st_contains,
+  na.rm = TRUE
+)
+
+kreise_polarity_25 <- aggregate(
+  tweets_by_author_25["polarity"],
+  by = kreise,
+  FUN = mean,
+  join = st_contains,
+  na.rm = TRUE
+)
+
+kreise_polarity_50 <- aggregate(
+  tweets_by_author_50["polarity"],
+  by = kreise,
+  FUN = mean,
+  join = st_contains,
+  na.rm = TRUE
+)
+
+kreise_polarity_100 <- aggregate(
+  tweets_by_author_100["polarity"],
+  by = kreise,
+  FUN = mean,
+  join = st_contains,
+  na.rm = TRUE
+)
+
+kreise_authors <- aggregate(
+  tweets_by_author["author"],
+  by = kreise,
+  FUN = length,
+  join = st_contains
+)
+
+kreise_polarity <- kreise_polarity %>%
+  bind_cols(polarity_25 = kreise_polarity_25$polarity,
+            polarity_50 = kreise_polarity_50$polarity,
+            polarity_100 = kreise_polarity_100$polarity,
+            authors = kreise_authors$author,
+            place = kreise$gen,
+            ags = kreise$ags,
+            se = kreise_se$se) %>%
+  as_tibble() %>%
+  st_as_sf()
+```
+
+To create an interpolation raster for author-level polarity estimates, we first create an empty 1km x 1km raster and then use spatial aggregation to fill the grid cells with values. We then perform inverse distance weighting from the `gstat` package on the raster data.
+
+```{r,eval=FALSE}
+grid <- st_make_grid(tweets_by_author, 1000)
+grid2 <- aggregate(tweets_by_author["polarity"], grid, FUN = mean, na.rm = TRUE)
+grid <- make_grid(grid, 1000)
+
+# Interpolate polarity based on baseline grid
+polarity_grid <- gstat::idw(
+  polarity ~ 1,
+  location = na.omit(grid2),
+  newdata = grid,
+  idp = 0.5
+) %>% st_crop(kreise)
+```
+
+Context data are another important component that is still missing so far. The context data was previously pre-processed and saved in the Feather format (see `R/read_context_bulk.R` in the repository). In the following code chunk, the context dataset is linked to the district polygons, imputed by median and standardized. In the final line, the dataset is converted to an object of the older `sp` class to ensure compatibility with all packages.
+
+```{r,eval=FALSE}
+# Read context data generated by read_context_bulk.R
+context <- read_feather("data/context/context.feather")
+
+# Prepare context variables and join them with polarity scores
+kreise_polarity_context <- kreise_polarity %>%
+  left_join(context, by = "ags") %>%
+  dplyr::select(where(~!all(is.na(.x)))) %>%
+  mutate(across(.fns = randomForest::na.roughfix)) # impute NA by median
+
+# Center and scale context variables
+kreise_polarity_context <- datawizard::standardize(kreise_polarity_context)
+
+# Convert to sp object
+kreise_polarity_context_sp <- as_Spatial(st_as_sf(kreise_polarity_context))
+```
+
+To fit mixed-effect or multilevel models, context data needs to be disaggregated first. This is achieved using spatial joins.
+
+```{r,eval=FALSE}
+authors_context <- st_join(
+  tweets_by_author,
+  kreise_polarity_context[c("ags", names(var_sel))],
+  st_within
+)
+authors_context_25 <- st_join(
+  tweets_by_author_25,
+  kreise_polarity_context[c("ags", names(var_sel))],
+  st_within
+)
+authors_context_50 <- st_join(
+  tweets_by_author_50,
+  kreise_polarity_context[c("ags", names(var_sel))],
+  st_within
+)
+authors_context_100 <- st_join(
+  tweets_by_author_100,
+  kreise_polarity_context[c("ags", names(var_sel))],
+  st_within
+)
+```
+
+Random structures are optimized by "keeping it maximal". In this sense, the first model fit includes a full random structure, which is iteratively reduced by removing random effects from variables with a variance of close to zero. For model fitting, a BOBYQA optimizer is used and no Hessian is computed.
+
+```{r,eval=FALSE}
+# maximal model formula
+formula_lmer_max <- construct_mer_formula(
+  polarity                = "dependent",
+  industriequote          = c(intercept = "random", slope = "random"),
+  kreative_klasse         = c(intercept = "random", slope = "random"),
+  akademiker              = c(intercept = "random", slope = "random"),
+  erwerbstätige_primsek   = c(intercept = "random", slope = "random"),
+  unter_30                = c(intercept = "random", slope = "random"),
+  lebenserwartung         = c(intercept = "random", slope = "random"),
+  pkwdichte               = c(intercept = "random", slope = "random"),
+  scenes                  = c(intercept = "random", slope = "random"),
+  stimmenanteile_afd      = c(intercept = "random", slope = "random"),
+  neuinanspruchnahme      = c(intercept = "random", slope = "random"),
+  städtebauförderung_kurz = c(intercept = "random", slope = "random"),
+  sachinvestitionen       = c(intercept = "random", slope = "random"),
+  naturschutz             = c(intercept = "random", slope = "random"),
+  windkraft_pro_10000     = c(intercept = "random", slope = "random"),
+  überschwemmungsgefahr   = c(intercept = "random", slope = "random"),
+  erholungsfläche         = c(intercept = "random", slope = "random"),
+  grp = "place",
+  data = authors_context
+)
+
+formula_lmer_max <- inject(construct_mer_formula(
+  polarity = "dependent",
+  !!!random_structure,
+  grp = "ags",
+  data = authors_context)
+)
+
+# Improve performance by selecting a fast model optimizer
+lmer_control <- lmerControl(
+  calc.derivs = FALSE,
+  optCtrl = list(algorithm = "NLOPT_LN_BOBYQA", iprint = 3)
+)
+
+# Fit multilevel models
+iteration <- ""
+cli_alert_info("Starting multilevel modelling: Polarity")
+cli_progress_message("  {iteration}")
+mlmodel <- callr::r(
+  call_lmer,
+  args = list(form = formula_lmer_max, data = authors_context, control = lmer_control),
+  callback = lmer_callback,
+  spinner = TRUE
+)
+```
+
+The final mixed effect formulas can then be deduced in the same way:
+
+```{r,eval=FALSE}
+random_structure <- list(
+  industriequote          = c(intercept = "random", slope = "fixed"),
+  kreative_klasse         = c(intercept = "fixed",  slope = "fixed"),
+  akademiker              = c(intercept = "fixed",  slope = "fixed"),
+  erwerbstätige_primsek   = c(intercept = "fixed",  slope = "fixed"),
+  unter_30                = c(intercept = "fixed",  slope = "fixed"),
+  lebenserwartung         = c(intercept = "fixed",  slope = "fixed"),
+  pkwdichte               = c(intercept = "fixed",  slope = "fixed"),
+  scenes                  = c(intercept = "fixed",  slope = "fixed"),
+  stimmenanteile_afd      = c(intercept = "fixed",  slope = "fixed"),
+  neuinanspruchnahme      = c(intercept = "fixed",  slope = "fixed"),
+  städtebauförderung_kurz = c(intercept = "random", slope = "fixed"),
+  sachinvestitionen       = c(intercept = "fixed",  slope = "random"),
+  naturschutz             = c(intercept = "fixed",  slope = "fixed"),
+  windkraft_pro_10000     = c(intercept = "fixed",  slope = "random"),
+  überschwemmungsgefahr   = c(intercept = "fixed",  slope = "fixed"),
+  erholungsfläche         = c(intercept = "fixed",  slope = "fixed")
+)
+
+formula_lmer <- inject(construct_mer_formula(
+  polarity = "dependent",
+  !!!random_structure,
+  grp = "ags",
+  data = authors_context)
+)
+
+random_structure_25 <- list(
+  industriequote          = c(intercept = "fixed",  slope = "random"),
+  kreative_klasse         = c(intercept = "random", slope = "fixed"),
+  akademiker              = c(intercept = "fixed",  slope = "fixed"),
+  erwerbstätige_primsek   = c(intercept = "fixed",  slope = "fixed"),
+  unter_30                = c(intercept = "fixed",  slope = "fixed"),
+  lebenserwartung         = c(intercept = "fixed",  slope = "random"),
+  pkwdichte               = c(intercept = "fixed",  slope = "fixed"),
+  scenes                  = c(intercept = "fixed",  slope = "fixed"),
+  stimmenanteile_afd      = c(intercept = "fixed",  slope = "fixed"),
+  neuinanspruchnahme      = c(intercept = "fixed",  slope = "fixed"),
+  städtebauförderung_kurz = c(intercept = "fixed",  slope = "random"),
+  sachinvestitionen       = c(intercept = "random", slope = "fixed"),
+  naturschutz             = c(intercept = "fixed",  slope = "fixed"),
+  windkraft_pro_10000     = c(intercept = "fixed",  slope = "random"),
+  überschwemmungsgefahr   = c(intercept = "fixed",  slope = "fixed"),
+  erholungsfläche         = c(intercept = "fixed",  slope = "fixed")
+)
+
+formula_lmer_25 <- inject(construct_mer_formula(
+  polarity = "dependent",
+  !!!random_structure_25,
+  grp = "ags",
+  data = authors_context
+))
+
+random_structure_50 <- list(
+  industriequote          = c(intercept = "fixed",  slope = "fixed"),
+  kreative_klasse         = c(intercept = "fixed",  slope = "fixed"),
+  akademiker              = c(intercept = "fixed",  slope = "fixed"),
+  erwerbstätige_primsek   = c(intercept = "fixed",  slope = "random"),
+  unter_30                = c(intercept = "fixed",  slope = "fixed"),
+  lebenserwartung         = c(intercept = "fixed",  slope = "random"),
+  pkwdichte               = c(intercept = "fixed",  slope = "fixed"),
+  scenes                  = c(intercept = "fixed",  slope = "fixed"),
+  stimmenanteile_afd      = c(intercept = "fixed",  slope = "fixed"),
+  neuinanspruchnahme      = c(intercept = "fixed",  slope = "fixed"),
+  städtebauförderung_kurz = c(intercept = "fixed",  slope = "random"),
+  sachinvestitionen       = c(intercept = "fixed",  slope = "random"),
+  naturschutz             = c(intercept = "fixed",  slope = "fixed"),
+  windkraft_pro_10000     = c(intercept = "fixed",  slope = "random"),
+  überschwemmungsgefahr   = c(intercept = "fixed",  slope = "fixed"),
+  erholungsfläche         = c(intercept = "fixed",  slope = "fixed")
+)
+
+formula_lmer_50 <- inject(construct_mer_formula(
+  polarity = "dependent",
+  !!!random_structure_50,
+  grp = "ags",
+  data = authors_context
+))
+
+random_structure_100 <- list(
+  industriequote          = c(intercept = "fixed",  slope = "fixed"),
+  kreative_klasse         = c(intercept = "fixed",  slope = "random"),
+  akademiker              = c(intercept = "fixed",  slope = "fixed"),
+  erwerbstätige_primsek   = c(intercept = "fixed",  slope = "random"),
+  unter_30                = c(intercept = "fixed",  slope = "fixed"),
+  lebenserwartung         = c(intercept = "fixed",  slope = "fixed"),
+  pkwdichte               = c(intercept = "fixed",  slope = "fixed"),
+  scenes                  = c(intercept = "fixed",  slope = "random"),
+  stimmenanteile_afd      = c(intercept = "fixed",  slope = "fixed"),
+  neuinanspruchnahme      = c(intercept = "fixed",  slope = "fixed"),
+  städtebauförderung_kurz = c(intercept = "random", slope = "random"),
+  sachinvestitionen       = c(intercept = "fixed",  slope = "random"),
+  naturschutz             = c(intercept = "fixed",  slope = "fixed"),
+  windkraft_pro_10000     = c(intercept = "fixed",  slope = "random"),
+  überschwemmungsgefahr   = c(intercept = "fixed",  slope = "fixed"),
+  erholungsfläche         = c(intercept = "fixed",  slope = "fixed")
+)
+
+formula_lmer_100 <- inject(construct_mer_formula(
+  polarity = "dependent",
+  !!!random_structure_100,
+  grp = "ags",
+  data = authors_context
+))
+
+mlmodel <- callr::r(
+  call_lmer,
+  args = list(form = formula_lmer, data = authors_context, control = lmer_control),
+  callback = lmer_callback,
+  spinner = TRUE
+)
+mlmodel_25 <- callr::r(
+  call_lmer,
+  args = list(form = formula_lmer_25, data = authors_context_25, control = lmer_control),
+  callback = lmer_callback,
+  spinner = TRUE
+)
+mlmodel_50 <- callr::r(
+  call_lmer,
+  args = list(form = formula_lmer_50, data = authors_context_50, control = lmer_control),
+  callback = lmer_callback,
+  spinner = TRUE
+)
+mlmodel_100 <- callr::r(
+  call_lmer,
+  args = list(form = formula_lmer_100, data = authors_context_100, control = lmer_control),
+  callback = lmer_callback,
+  spinner = TRUE
+)
+```
+
+Cluster-robust standard errors are computed using the `clubSandwich` package:
+
+```{r,eval=FALSE}
+attr(mlmodel, "vcov") <- clubSandwich::vcovCR(mlmodel, type = "CR2")
+attr(mlmodel_25, "vcov") <- clubSandwich::vcovCR(mlmodel_25, type = "CR2")
+attr(mlmodel_50, "vcov") <- clubSandwich::vcovCR(mlmodel_50, type = "CR2")
+attr(mlmodel_100, "vcov") <- clubSandwich::vcovCR(mlmodel_100, type = "CR2")
+```
+
+Random effects are simulated using the `merTools` package:
+
+```{r,eval=FALSE}
+mlsim <- REsim(mlmodel, seed = rseed)
+mlsim_25 <- REsim(mlmodel_25, seed = rseed)
+mlsim_50 <- REsim(mlmodel_50, seed = rseed)
+mlsim_100 <- REsim(mlmodel_100, seed = rseed)
+mlterms <- setdiff(unique(mlsim$term), "(Intercept)")
+mlterms_25 <- setdiff(unique(mlsim_25$term), "(Intercept)")
+mlterms_50 <- setdiff(unique(mlsim_50$term), "(Intercept)")
+mlterms_100 <- setdiff(unique(mlsim_100$term), "(Intercept)")
+```
+
