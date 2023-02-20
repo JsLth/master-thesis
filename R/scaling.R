@@ -23,7 +23,7 @@ tfidf <- function(tweets, n) {
 }
 
 
-lss_loocv <- function(model) {
+validate_lss <- function(model) {
   seeds <- model$seeds
   seedwords <- names(seeds)
   seed_weights <- model$beta[seedwords] ##############
@@ -40,7 +40,7 @@ lss_loocv <- function(model) {
       seed_errors[[i]] <- NA
       next
     }
-    adj_model <- suppressMessages(lsx_model %>%
+    adj_model <- suppressMessages(model %>%
       update(seeds = seeds[!names(seeds) %in% seed], evaluate = FALSE) %>%
       deparse() %>%
       trimws() %>%
@@ -63,16 +63,24 @@ lss_loocv <- function(model) {
     row.names = NULL
   )
   
-  capture.output(
-    latex <- stargazer(df, summary = FALSE, rownames = FALSE, digits = NA, digits.extra = 5) %>%
-      str_replace_all(fixed("$$"), "$") %>%
-      str_replace_all(fixed("$0$"), "$0.00000$") %>%
-      str_replace_all(fixed("$-$"), "$")
-  )
+  vcols <- c("seedword", "reference", "estimate", "error")
+  fmt <- cbind(
+    df[df$position == "hegemonic", vcols],
+    df[df$position == "polemic", vcols]
+  ) %>%
+    set_colnames(str_to_title(colnames(.))) %>%
+    set_colnames(paste(c(rep("Hegemonic", 4), rep("Polemic", 4)), names(.), sep = "."))
+  fmt_unique <- set_colnames(fmt, make.unique(names(fmt)))
+  fmt_names <- set_names(as.list(names(fmt)), names(fmt_unique))
+  fmt_header <- 
+  fmt <- flextable(fmt_unique) %>%
+    set_header_labels(values = fmt_names) %>%
+    ftExtra::span_header() %>%
+    theme_booktabs()
   
   list(
     df = df,
-    latex = paste(latex, collapse = "\n"),
+    latex = fmt,
     err = unname(err)
   )
 }
@@ -162,7 +170,7 @@ textplot_terms.textmodel_lss <- function(x, highlighted = NULL, max_words = 1000
 }
 
 
-plot_multiple_density <- function(dfm, seeds, k, engine = "rsvd", seed = 1111) {
+marginal_seedword_improvement <- function(dfm, seeds, k, engine = "rsvd", seed = 1111) {
   if (length(seeds[[1]]) != length(seeds[[2]])) {
     cli_abort("Both seedword directions must be of equal length.")
   }

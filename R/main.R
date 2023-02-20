@@ -1,23 +1,3 @@
-# MAIN WORKFLOW
-# At this point this code should not be sourced directly
-# because it will take way more than a full work day to process
-# and is likely to crash somewhere
-
-#
-# TODO:
-# - search for solutions to aggregate tweets by author to possibly reduce sampling bias
-# - try without lemmatizing (see Watanabe 2021)
-# - find new seedwords
-# - make illustrative kernel function plots
-# - filter out low-polarity terms
-# - compute VIF, Morans' I and non-stationarity (using Monte Carlo) for each variable
-# - look into bootstrap GWR for improving inference
-# - remove graduate? Moderate VIF
-# - remove random structure of non-varying variables?
-# - create a cool network plot to make R file structure neater :)
-# - last minute plot on the increasing deviation when counting down from largest districts?
-#
-
 # Load packages, lists and utility functions
 source("R/packages.R")
 source("R/globals.R")
@@ -208,15 +188,6 @@ lsx_model <- textmodel_lss(
   engine = "rsvd"
 )
 
-pheatmap(
-  lsx_model$similarity,
-  treeheight_col = 0,
-  treeheight_row = 0,
-  fontsize = 6,
-  color = RColorBrewer::brewer.pal(11, "RdBu"),
-  breaks = seq(-1, 1, 0.2)
-)
-
 # Plot term polarity
 # Figure 4.2
 term_plot <- textplot_terms.textmodel_lss(lsx_model, highlighted = seed, max_words = 10000)
@@ -224,23 +195,7 @@ ggsave("plots/term_plot.pdf", term_plot, device = cairo_pdf)
 
 # Leave-one-out validation approach for seedword selection
 # Table 3.2
-term_validation <- lss_loocv(lsx_model)
-cbind(
-  term_validation$df[term_validation$df$position == "hegemonic", c("seedword", "reference", "estimate", "error")],
-  term_validation$df[term_validation$df$position == "polemic", c("seedword", "reference", "estimate", "error")]
-) %>%
-  kbl(
-    format = "latex",
-    booktabs = TRUE,
-    col.names = str_to_title(colnames(.)),
-    label = "seedwords",
-    caption = "Seedwords used as reference for semantic scaling together with their validation results. The reference column refers to the weight assigned to a keyword when included in the model. The estimate column shows the prediction of a seedword when excluded from the model. The error measures the squared distance between both values."
-  ) %>%
-  add_header_above(c("Hegemonic" = 4, "Polemic" = 4)) %>%
-  column_spec(4) %>%
-  kable_paper() %>%
-  str_replace(fixed("\\centering"), "\\centering\n\\scriptsize") %>%
-  cat(file = "plots/term_validation.tex")
+term_validation <- validate_lss(lsx_model)
 
 # Compute predictions for documents
 pred <- predict(
@@ -254,7 +209,7 @@ pred <- predict(
 
 # Plot density function
 # Figure 4.1
-dn <- plot_multiple_density(tw_dfm, seed, k = k, engine = "rsvd", seed = rseed)
+dn <- marginal_seedword_improvement(tw_dfm, seed, k = k, engine = "rsvd", seed = rseed)
 ggsave("plots/density.pdf", dn$density, device = cairo_pdf)
 
 # Plot normality test
@@ -592,7 +547,6 @@ kableExtra::kbl(
 
 ## Multi-level model ----
 
-cli_alert_info("Linking district-level contextual variables to individual tweet authors")
 authors_context <- st_join(tweets_by_author, kreise_polarity_context[c("ags", names(var_sel))], st_within)
 authors_context_25 <- st_join(tweets_by_author_25, kreise_polarity_context[c("ags", names(var_sel))], st_within)
 authors_context_50 <- st_join(tweets_by_author_50, kreise_polarity_context[c("ags", names(var_sel))], st_within)
@@ -602,45 +556,49 @@ authors_context_100 <- st_join(tweets_by_author_100, kreise_polarity_context[c("
 # on effects
 
 # maximal model formula
-formula_lmer_max <- construct_mer_formula(
-  polarity                = "dependent",
-  industriequote          = c(intercept = "random", slope = "random"),
-  kreative_klasse         = c(intercept = "random", slope = "random"),
-  akademiker              = c(intercept = "random", slope = "random"),
-  erwerbstätige_primsek   = c(intercept = "random", slope = "random"),
-  unter_30                = c(intercept = "random", slope = "random"),
-  lebenserwartung         = c(intercept = "random", slope = "random"),
-  pkwdichte               = c(intercept = "random", slope = "random"),
-  scenes                  = c(intercept = "random", slope = "random"),
-  stimmenanteile_afd      = c(intercept = "random", slope = "random"),
-  neuinanspruchnahme      = c(intercept = "random", slope = "random"),
-  städtebauförderung_kurz = c(intercept = "random", slope = "random"),
-  sachinvestitionen       = c(intercept = "random", slope = "random"),
-  naturschutz             = c(intercept = "random", slope = "random"),
-  windkraft_pro_10000     = c(intercept = "random", slope = "random"),
-  überschwemmungsgefahr   = c(intercept = "random", slope = "random"),
-  erholungsfläche         = c(intercept = "random", slope = "random"),
-  grp = "place",
-  data = authors_context
+random_structure_max <- list(
+  industry        = c(intercept = "random", slope = "random"),
+  creative        = c(intercept = "random", slope = "random"),
+  academic        = c(intercept = "random", slope = "random"),
+  primary         = c(intercept = "random", slope = "random"),
+  under_30        = c(intercept = "random", slope = "random"),
+  life_expectancy = c(intercept = "random", slope = "random"),
+  car_density     = c(intercept = "random", slope = "random"),
+  scenes          = c(intercept = "random", slope = "random"),
+  rightwing_votes = c(intercept = "random", slope = "random"),
+  land_take       = c(intercept = "random", slope = "random"),
+  urban_funding   = c(intercept = "random", slope = "random"),
+  capex           = c(intercept = "random", slope = "random"),
+  env_protection  = c(intercept = "random", slope = "random"),
+  wind_turbines   = c(intercept = "random", slope = "random"),
+  flood_exposure  = c(intercept = "random", slope = "random"),
+  recreation      = c(intercept = "random", slope = "random")
+)
+
+formula_lmer_max <- inject(construct_mer_formula(
+  polarity = "dependent",
+  !!!random_structure,
+  grp = "ags",
+  data = authors_context)
 )
 
 random_structure <- list(
-  industriequote          = c(intercept = "random", slope = "fixed"),
-  kreative_klasse         = c(intercept = "fixed",  slope = "fixed"),
-  akademiker              = c(intercept = "fixed",  slope = "fixed"),
-  erwerbstätige_primsek   = c(intercept = "fixed",  slope = "fixed"),
-  unter_30                = c(intercept = "fixed",  slope = "fixed"),
-  lebenserwartung         = c(intercept = "fixed",  slope = "fixed"),
-  pkwdichte               = c(intercept = "fixed",  slope = "fixed"),
-  scenes                  = c(intercept = "fixed",  slope = "fixed"),
-  stimmenanteile_afd      = c(intercept = "fixed",  slope = "fixed"),
-  neuinanspruchnahme      = c(intercept = "fixed",  slope = "fixed"),
-  städtebauförderung_kurz = c(intercept = "random", slope = "fixed"),
-  sachinvestitionen       = c(intercept = "fixed",  slope = "random"),
-  naturschutz             = c(intercept = "fixed",  slope = "fixed"),
-  windkraft_pro_10000     = c(intercept = "fixed",  slope = "random"),
-  überschwemmungsgefahr   = c(intercept = "fixed",  slope = "fixed"),
-  erholungsfläche         = c(intercept = "fixed",  slope = "fixed")
+  industry        = c(intercept = "random", slope = "fixed"),
+  creative        = c(intercept = "fixed",  slope = "fixed"),
+  academic        = c(intercept = "fixed",  slope = "fixed"),
+  primary         = c(intercept = "fixed",  slope = "fixed"),
+  under_30        = c(intercept = "fixed",  slope = "fixed"),
+  life_expectancy = c(intercept = "fixed",  slope = "fixed"),
+  car_density     = c(intercept = "fixed",  slope = "fixed"),
+  scenes          = c(intercept = "fixed",  slope = "fixed"),
+  rightwing_votes = c(intercept = "fixed",  slope = "fixed"),
+  land_take       = c(intercept = "fixed",  slope = "fixed"),
+  urban_funding   = c(intercept = "random", slope = "fixed"),
+  capex           = c(intercept = "fixed",  slope = "random"),
+  env_protection  = c(intercept = "fixed",  slope = "fixed"),
+  wind_turbines   = c(intercept = "fixed",  slope = "random"),
+  flood_exposure  = c(intercept = "fixed",  slope = "fixed"),
+  recreation      = c(intercept = "fixed",  slope = "fixed")
 )
 
 formula_lmer <- inject(construct_mer_formula(
@@ -651,22 +609,22 @@ formula_lmer <- inject(construct_mer_formula(
 )
 
 random_structure_25 <- list(
-  industriequote          = c(intercept = "fixed",  slope = "random"),
-  kreative_klasse         = c(intercept = "random", slope = "fixed"),
-  akademiker              = c(intercept = "fixed",  slope = "fixed"),
-  erwerbstätige_primsek   = c(intercept = "fixed",  slope = "fixed"),
-  unter_30                = c(intercept = "fixed",  slope = "fixed"),
-  lebenserwartung         = c(intercept = "fixed",  slope = "random"),
-  pkwdichte               = c(intercept = "fixed",  slope = "fixed"),
-  scenes                  = c(intercept = "fixed",  slope = "fixed"),
-  stimmenanteile_afd      = c(intercept = "fixed",  slope = "fixed"),
-  neuinanspruchnahme      = c(intercept = "fixed",  slope = "fixed"),
-  städtebauförderung_kurz = c(intercept = "fixed",  slope = "random"),
-  sachinvestitionen       = c(intercept = "random", slope = "fixed"),
-  naturschutz             = c(intercept = "fixed",  slope = "fixed"),
-  windkraft_pro_10000     = c(intercept = "fixed",  slope = "random"),
-  überschwemmungsgefahr   = c(intercept = "fixed",  slope = "fixed"),
-  erholungsfläche         = c(intercept = "fixed",  slope = "fixed")
+  industry        = c(intercept = "fixed",  slope = "random"),
+  creative        = c(intercept = "random", slope = "fixed"),
+  academic        = c(intercept = "fixed",  slope = "fixed"),
+  primary         = c(intercept = "fixed",  slope = "fixed"),
+  under_30        = c(intercept = "fixed",  slope = "fixed"),
+  life_expectancy = c(intercept = "fixed",  slope = "random"),
+  car_density     = c(intercept = "fixed",  slope = "fixed"),
+  scenes          = c(intercept = "fixed",  slope = "fixed"),
+  rightwing_votes = c(intercept = "fixed",  slope = "fixed"),
+  land_take       = c(intercept = "fixed",  slope = "fixed"),
+  urban_funding   = c(intercept = "fixed",  slope = "random"),
+  capex           = c(intercept = "random", slope = "fixed"),
+  env_protection  = c(intercept = "fixed",  slope = "fixed"),
+  wind_turbines   = c(intercept = "fixed",  slope = "random"),
+  flood_exposure  = c(intercept = "fixed",  slope = "fixed"),
+  recreation      = c(intercept = "fixed",  slope = "fixed")
 )
 
 formula_lmer_25 <- inject(construct_mer_formula(
@@ -677,22 +635,22 @@ formula_lmer_25 <- inject(construct_mer_formula(
 ))
 
 random_structure_50 <- list(
-  industriequote          = c(intercept = "fixed",  slope = "fixed"),
-  kreative_klasse         = c(intercept = "fixed",  slope = "fixed"),
-  akademiker              = c(intercept = "fixed",  slope = "fixed"),
-  erwerbstätige_primsek   = c(intercept = "fixed",  slope = "random"),
-  unter_30                = c(intercept = "fixed",  slope = "fixed"),
-  lebenserwartung         = c(intercept = "fixed",  slope = "random"),
-  pkwdichte               = c(intercept = "fixed",  slope = "fixed"),
-  scenes                  = c(intercept = "fixed",  slope = "fixed"),
-  stimmenanteile_afd      = c(intercept = "fixed",  slope = "fixed"),
-  neuinanspruchnahme      = c(intercept = "fixed",  slope = "fixed"),
-  städtebauförderung_kurz = c(intercept = "fixed",  slope = "random"),
-  sachinvestitionen       = c(intercept = "fixed",  slope = "random"),
-  naturschutz             = c(intercept = "fixed",  slope = "fixed"),
-  windkraft_pro_10000     = c(intercept = "fixed",  slope = "random"),
-  überschwemmungsgefahr   = c(intercept = "fixed",  slope = "fixed"),
-  erholungsfläche         = c(intercept = "fixed",  slope = "fixed")
+  industry        = c(intercept = "fixed",  slope = "fixed"),
+  creative        = c(intercept = "fixed",  slope = "fixed"),
+  academics       = c(intercept = "fixed",  slope = "fixed"),
+  primary         = c(intercept = "fixed",  slope = "random"),
+  under_30        = c(intercept = "fixed",  slope = "fixed"),
+  life_expectancy = c(intercept = "fixed",  slope = "random"),
+  car_density     = c(intercept = "fixed",  slope = "fixed"),
+  scenes          = c(intercept = "fixed",  slope = "fixed"),
+  rightwing_votes = c(intercept = "fixed",  slope = "fixed"),
+  land_take       = c(intercept = "fixed",  slope = "fixed"),
+  urban_funding   = c(intercept = "fixed",  slope = "random"),
+  capex           = c(intercept = "fixed",  slope = "random"),
+  env_protection  = c(intercept = "fixed",  slope = "fixed"),
+  wind_turbines   = c(intercept = "fixed",  slope = "random"),
+  flood_exposure  = c(intercept = "fixed",  slope = "fixed"),
+  recreation      = c(intercept = "fixed",  slope = "fixed")
 )
 
 formula_lmer_50 <- inject(construct_mer_formula(
@@ -703,22 +661,22 @@ formula_lmer_50 <- inject(construct_mer_formula(
 ))
 
 random_structure_100 <- list(
-  industriequote          = c(intercept = "fixed",  slope = "fixed"),
-  kreative_klasse         = c(intercept = "fixed",  slope = "random"),
-  akademiker              = c(intercept = "fixed",  slope = "fixed"),
-  erwerbstätige_primsek   = c(intercept = "fixed",  slope = "random"),
-  unter_30                = c(intercept = "fixed",  slope = "fixed"),
-  lebenserwartung         = c(intercept = "fixed",  slope = "fixed"),
-  pkwdichte               = c(intercept = "fixed",  slope = "fixed"),
-  scenes                  = c(intercept = "fixed",  slope = "random"),
-  stimmenanteile_afd      = c(intercept = "fixed",  slope = "fixed"),
-  neuinanspruchnahme      = c(intercept = "fixed",  slope = "fixed"),
-  städtebauförderung_kurz = c(intercept = "random", slope = "random"),
-  sachinvestitionen       = c(intercept = "fixed",  slope = "random"),
-  naturschutz             = c(intercept = "fixed",  slope = "fixed"),
-  windkraft_pro_10000     = c(intercept = "fixed",  slope = "random"),
-  überschwemmungsgefahr   = c(intercept = "fixed",  slope = "fixed"),
-  erholungsfläche         = c(intercept = "fixed",  slope = "fixed")
+  industry        = c(intercept = "fixed",  slope = "fixed"),
+  creative        = c(intercept = "fixed",  slope = "random"),
+  academic        = c(intercept = "fixed",  slope = "fixed"),
+  primary         = c(intercept = "fixed",  slope = "random"),
+  under_30        = c(intercept = "fixed",  slope = "fixed"),
+  life_expectancy = c(intercept = "fixed",  slope = "fixed"),
+  car_density     = c(intercept = "fixed",  slope = "fixed"),
+  scenes          = c(intercept = "fixed",  slope = "random"),
+  rightwing_votes = c(intercept = "fixed",  slope = "fixed"),
+  land_take       = c(intercept = "fixed",  slope = "fixed"),
+  urban_funding   = c(intercept = "random", slope = "random"),
+  capex           = c(intercept = "fixed",  slope = "random"),
+  env_protection  = c(intercept = "fixed",  slope = "fixed"),
+  wind_turbines   = c(intercept = "fixed",  slope = "random"),
+  flood_exposure  = c(intercept = "fixed",  slope = "fixed"),
+  recreation      = c(intercept = "fixed",  slope = "fixed")
 )
 
 formula_lmer_100 <- inject(construct_mer_formula(
@@ -988,14 +946,14 @@ qq <- plot_qq(
 )
 qq$data <- qq$data %>%
   mutate(model = recode(model,
-                        "Model 1" = "Model 1 (multilevel)",
-                        "Model 2" = "Model 2 (multilevel)",
-                        "Model 3" = "Model 3 (multilevel)",
-                        "Model 4" = "Model 4 (multilevel)",
-                        "Model 5" = "Model 1 (OLS)",
-                        "Model 6" = "Model 2 (OLS)",
-                        "Model 7" = "Model 3 (OLS)",
-                        "Model 8" = "Model 4 (OLS)",
+    "Model 1" = "Model 1 (multilevel)",
+    "Model 2" = "Model 2 (multilevel)",
+    "Model 3" = "Model 3 (multilevel)",
+    "Model 4" = "Model 4 (multilevel)",
+    "Model 5" = "Model 1 (OLS)",
+    "Model 6" = "Model 2 (OLS)",
+    "Model 7" = "Model 3 (OLS)",
+    "Model 8" = "Model 4 (OLS)",
   ))
 ggsave("plots/qqplot.pdf", qq, device = cairo_pdf, width = 8, height = 8)
 
@@ -1179,15 +1137,15 @@ gwr_mixed <- gwr.mixed.fixed(
   kernel = kernel,
   adaptive = adaptive
 )
-mixed_sf <- st_as_sf(gwr_mixed$SDF) %>%
-  tidyr::pivot_longer(
-    c(
-      industriequote_L, kreative_klasse_L, erwerbstätige_primsek_L,
-      stimmenanteile_afd_L, windkraft_pro_10000_L
+mixed_sf <- sf::st_as_sf(gwr_mixed$SDF) %>%
+  tidyr::pivot_longer(paste0(spatial_vars, "_L")) %>%
+  dplyr::mutate(
+    name = factor(
+      stringr::str_remove(name, fixed("_L")),
+      levels = names(var_sel)
     )
   ) %>%
-  mutate(name = factor(str_remove(name, fixed("_L")), levels = names(var_sel))) %>%
-  mutate(name = recode(name, !!!sel_eng)) %>%
+  dplyr::mutate(name = dplyr::recode(name, !!!sel_eng)) %>%
   dplyr::select(name, value)
 
 # Plot results of SGWR

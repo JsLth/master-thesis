@@ -35,36 +35,7 @@ keywords_df <- data.frame(
   )
 )
 
-# seedwords #1 (first try)
-seed <- list(
-  supporting = c(
-    "klimakatastrophe", "klimakrise", "umweltschutz",
-    "wissenschaft", "klimakriseistjetzt",
-    "artenkollaps", "govegan", "klimaziel", "klimaschutz"
-  ),
-  opposing = c(
-    "klimahysterie", "gruenermist",
-    "grueneninkompetenz", "panik",
-    "volk", "eigenverantwortung", "propaganda",
-    "staatsfunk"
-  )
-)
-
-# seedwords #2 (better try)
-seed <- list(
-  supporting = c(
-    "klimakriseistjetzt", "wasserknappheit", "klimakatastrophe", "artenkollaps",
-    "waldbrände", "dürre",  "flächenverbrauch", "abholzung", "klimakrise",
-    "govegan", "umweltzerstörung"
-  ),
-  opposing = c(
-    "klimahysterie", "grünermist", "meinungsfreiheit", "ökofaschisten",
-    "gruenesekte", "ideologen", "linksgrünen", "staatsfunk", "verbotspartei",
-    "eigenverantwortung", "öko"
-  )
-)
-
-# seedwords #3 (final selection)
+# seedwords
 seed <- data.frame(
   supporting = c(
     "klimakriseistjetzt", "klimakrise", "klimakatastrophe", "klimagerechtigkeit",
@@ -97,29 +68,28 @@ allowed_levels <- c("street", "locality", "district", "city")
 
 # Indicators to be selected from INKAR database
 inkar_sel <- c(
-  akademiker = "Beschäftigte mit akademischem Berufsabschluss",
-  industriequote = "Industriequote",
-  erwerbstätige_primsek = "Erwerbstätige Primärer Sektor",
-  kreative_klasse = "Beschäftigte in Kreativbranchen",
-  lebenserwartung = "Lebenserwartung",
-  stimmenanteile_afd = "Stimmenanteile AfD",
-  erholungsfläche = "Erholungsfläche je Einwohner",
-  sachinvestitionen = "Ausgaben für Sachinvestitionen",
-  städtebauförderung_lang = "Städtebauförderung (langfristig)",
-  städtebauförderung_kurz = "Städtebauförderung (kurzfristig)",
-  pkwdichte = "Pkw-Dichte",
-  unter_6 = "Einwohner unter 6 Jahre",
-  unter_18 = "Einwohner von 6 bis unter 18 Jahren",
-  unter_25 = "Einwohner von 18 bis unter 25 Jahren",
-  unter_30 = "Einwohner von 25 bis unter 30 Jahren"
+  academic = "Beschäftigte mit akademischem Berufsabschluss",
+  industry = "Industriequote",
+  primary = "Erwerbstätige Primärer Sektor",
+  creative = "Beschäftigte in Kreativbranchen",
+  life_expectancy = "Lebenserwartung",
+  rightwing_votes = "Stimmenanteile AfD",
+  recreation = "Erholungsfläche je Einwohner",
+  capex = "Ausgaben für Sachinvestitionen",
+  urban_funding = "Städtebauförderung (kurzfristig)",
+  car_density = "Pkw-Dichte",
+  under_6 = "Einwohner unter 6 Jahre",
+  under_18 = "Einwohner von 6 bis unter 18 Jahren",
+  under_25 = "Einwohner von 18 bis unter 25 Jahren",
+  under_30 = "Einwohner von 25 bis unter 30 Jahren"
 )
 
 # Indicators to be pulled from IÖR WFS
 ioer_sel <- c(
-  windkraft_pro_10000 = "Anzahl Windkraftanlagen pro 10000 Einwohner",
-  neuinanspruchnahme = "Relative fünfjährliche Flächenneuinanspruchnahme baulich geprägter SuV",
-  naturschutz = "Natur- und Artenschutz",
-  überschwemmungsgefahr = "Siedlungslast im Überschwemmungsgebiet"
+  wind_turbines = "Anzahl Windkraftanlagen pro 10000 Einwohner",
+  land_take = "Relative fünfjährliche Flächenneuinanspruchnahme baulich geprägter SuV",
+  env_protection = "Natur- und Artenschutz",
+  flood_exposure = "Siedlungslast im Überschwemmungsgebiet"
 )
 
 # OSM features to be selected for the creation of a scenes indicator
@@ -138,55 +108,42 @@ osm_features <- list(
 
 # Final variable selection
 var_sel <- c(
-  industriequote = "Industriequote",
-  kreative_klasse = "Beschäftigte in Kreativbranchen",
-  akademiker = "Beschäftigte mit akademischem Berufsabschluss",
-  erwerbstätige_primsek = "Anteil Bruttowertschöpfung Primärer Sektor",
-  unter_30 = "Einwohner unter 30 Jahren",
-  lebenserwartung = "Lebenserwartung",
-  pkwdichte = "Pkw-Dichte",
+  industry = "Industriequote",
+  creative = "Beschäftigte in Kreativbranchen",
+  academic = "Beschäftigte mit akademischem Berufsabschluss",
+  primary = "Anteil Bruttowertschöpfung Primärer Sektor",
+  under_30 = "Einwohner unter 30 Jahren",
+  life_expectancy = "Lebenserwartung",
+  car_density = "Pkw-Dichte",
   scenes = "Cultural Scenes",
-  stimmenanteile_afd = "Stimmenanteile AfD",
-  neuinanspruchnahme = "Relative fünfjährliche Flächenneuinanspruchnahme baulich geprägter SuV",
-  städtebauförderung_kurz = "Städtebauförderung (kurzfristig)",
-  sachinvestitionen = "Ausgaben für Sachinvestitionen",
-  naturschutz = "Natur- und Artenschutz",
-  windkraft_pro_10000 = "Anzahl Windkraftanlagen pro 10000 Einwohner",
-  überschwemmungsgefahr = "Siedlungslast im Überschwemmungsgebiet",
-  erholungsfläche = "Erholungsfläche je Einwohner"
+  rightwing_votes = "Stimmenanteile AfD",
+  land_take = "Relative fünfjährliche Flächenneuinanspruchnahme baulich geprägter SuV",
+  urban_funding = "Städtebauförderung (kurzfristig)",
+  capex = "Ausgaben für Sachinvestitionen",
+  env_protection = "Natur- und Artenschutz",
+  wind_turbines = "Anzahl Windkraftanlagen pro 10000 Einwohner",
+  flood_exposure = "Siedlungslast im Überschwemmungsgebiet",
+  recreation = "Erholungsfläche je Einwohner"
 )
 
 # Formatted and translated variants of variable selection
 sel_eng <- c(
-  industriequote = "Industry employment",
-  kreative_klasse = "Creative employment",
-  haushaltseinkommen = "Household income",
-  erwerbstätige_primsek = "Primary employment",
-  schutzsuchende = "Protection seekers",
-  lebenserwartung = "Life expectancy",
-  pkwdichte = "Car density",
-  mietpreise = "Average rent",
-  erholungsfläche = "Recreational areas",
-  einkommenssteuer = "Income tax",
-  städtebauförderung_kurz = "Urban funding",
-  neuinanspruchnahme = "Land consumption",
-  naturschutz = "Nature conservation",
-  windkraft_pro_10000 = "Wind turbines",
-  überschwemmungsgefahr = "Flood exposition",
-  erreichbarkeit_öpnv = "Public transport",
-  naturbetont = "Natural areas",
-  stimmenanteile_afd = "Right-wing votership",
-  stimmenanteile_grüne = "Votes for Greens",
-  stimmenanteile_linke = "Votes for Left",
-  sachinvestitionen = "Capital expenditure",
-  bodenversiegelung = "Soil sealing",
-  altersverhältnis = "Age ratio",
-  erholungsfläche = "Recreational area",
-  akademiker = "Graduate employment",
-  stickstoffüberschuss = "Excess nitrogen",
-  solarflächenanteil = "Solar surface",
+  industry = "Industry employment",
+  creative = "Creative employment",
+  academic = "Graduate employment",
+  primary = "Primary employment",
+  under_30 = "Younger than 30",
+  life_expectancy = "Life expectancy",
+  car_density = "Car density",
   scenes = "Cultural amenities",
-  unter_30 = "Younger than 30"
+  rightwing_votes = "Right-wing votership",
+  land_take = "Land consumption",
+  urban_funding = "Urban funding",
+  capex = "Capital expenditure",
+  env_protection = "Nature conservation",
+  wind_turbines = "Wind turbines",
+  flood_exposure = "Flood exposition",
+  recreation = "Recreational areas"
 )
 
 # LaTeX-ready variable selection
@@ -229,7 +186,7 @@ var_sel_latex <- data.frame(
     "IÖR",
     "INKAR"
   ),
-  "Year" = c(
+  "Year" = as.character(c(
     2019,
     2019,
     2019,
@@ -246,5 +203,18 @@ var_sel_latex <- data.frame(
     2020,
     2021,
     2019
-  )
+  ))
 )
+
+
+ft <- flextable::flextable(var_sel_latex) %>%
+  flextable::theme_booktabs() %>%
+  flextable::width(width = 1, j = "Name") %>%
+  flextable::width(width = 4, j = "Description") %>%
+  flextable::width(width = 1, j = "Source") %>%
+  flextable::width(width = 0.5, j = "Year") %>%
+  flextable::fontsize(size = 9, part = "all")
+
+doc <- officer::read_docx() %>%
+  flextable::body_add_flextable(value = ft) %>%
+  print("test.docx")

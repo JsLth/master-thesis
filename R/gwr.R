@@ -64,84 +64,43 @@ model_selection <- function(formula,
     }
   }
   
-  if (!include_all) {
-    modelselect_df <- do.call(Map, c(f = rbind.data.frame, modelselect)) %>%
-      bind_rows() %>%
-      set_rownames(NULL) %>%
-      bind_cols(approach = c("AIC", "AIC", "CV", "CV"), kernel = rep(names(modelselect), 2), .) %>%
-      set_colnames(c("Approach", "Kernel", "Gaussian", "Exponential", "Bi-square", "Tri-cube", "Boxcar"))
-    
-    kab <- kableExtra::kbl(modelselect_df, booktabs = TRUE, align = "c", linesep = "", format = "latex") %>%
-      kableExtra::collapse_rows(1:3, row_group_label_position = "stack", valign = "top") %>%
-      kableExtra::add_header_above(c(" " = 2, "Kernel functions" = 5))
-    
-    opt_fun <- modelselect_df %>%
-      dplyr::select(-Approach, -Kernel) %>%
-      map_dbl(min) %>%
-      which.min() %>%
-      names()
-    opt_row <- modelselect_df[which.min(modelselect_df[[opt_fun]]), ]
-    
-    solution <- c(
-      func = opt_fun,
-      type = opt_row$Kernel,
-      approach = opt_row$Approach
-    )
-  } else {
-    exp_specs <- expand.grid(
-      Kernel = c("fixed", "adaptive"),
-      Function = str_to_title(kernels),
-      Approach = approaches
-    ) %>%
-      rev()
-    modelselect_df <- modelselect %>%
-      purrr::transpose() %>%
-      map(~do.call(Map, c(f = rbind.data.frame, .x))) %>%
-      purrr::transpose() %>%
-      c(f = rbind, .) %>%
-      do.call(Map, .) %>%
-      bind_rows() %>%
-      bind_cols(exp_specs, .) %>%
-      set_rownames(NULL)
-    
-    modelselect_df$AIC <- round(modelselect_df$AIC, 3)
-    modelselect_df$AICc <- round(modelselect_df$AICc, 3)
-    modelselect_df$BIC <- round(modelselect_df$BIC, 3)
-    modelselect_df$RSS.gw <- round(modelselect_df$RSS.gw, 3)
-    modelselect_df$gw.R2 <- round(modelselect_df$gw.R2, 3)
-    
-    kab <- kableExtra::kbl(
-      modelselect_df,
-      booktabs = TRUE,
-      col.names = c("", "", "", "AIC", "AICc", "BIC", "RSS", "R2"),
-      align = "c",
-      linesep = "",
-      format = "latex",
-      caption = "Comparison of GWR model specifications. The results are grouped by bandwidth calibration technique (AIC or cross-validation), kernel function and kernel function type (fixed or adaptive).",
-      caption.short = "Comparison of GWR model specifications",
-      label = "specs"
-    ) %>%
-      kableExtra::collapse_rows(1:3, row_group_label_position = "stack")
-    
-    opt_row <- modelselect_df %>%
-      dplyr::select(Approach, Function, Kernel, all_of(diagnostic)) %>%
-      slice_min(.[[diagnostic]]) %>%
-      magrittr::extract(1, )
-
-    solution <- c(
-      tolower(opt_row$Function),
-      as.character(opt_row$Kernel),
-      toupper(opt_row$Approach)
-    ) %>%
-      as.character() %>%
-      set_names("func", "type", "approach")
-  }
+  exp_specs <- expand.grid(
+    Kernel = c("fixed", "adaptive"),
+    Function = str_to_title(kernels),
+    Approach = approaches
+  ) %>%
+    rev()
+  modelselect_df <- modelselect %>%
+    purrr::transpose() %>%
+    map(~do.call(Map, c(f = rbind.data.frame, .x))) %>%
+    purrr::transpose() %>%
+    c(f = rbind, .) %>%
+    do.call(Map, .) %>%
+    bind_rows() %>%
+    bind_cols(exp_specs, .) %>%
+    set_rownames(NULL) %>%
+    rename(RSS = "RSS.gw", R2 = "gw.R2")
   
-  list(
-    solution = solution,
-    df = modelselect_df,
-    table = kab
-  )
+  modelselect_df$AIC <- round(modelselect_df$AIC, 3)
+  modelselect_df$AICc <- round(modelselect_df$AICc, 3)
+  modelselect_df$BIC <- round(modelselect_df$BIC, 3)
+  modelselect_df$RSS <- round(modelselect_df$RSS, 3)
+  modelselect_df$R2 <- round(modelselect_df$R2, 3)
+  
+  opt_row <- modelselect_df %>%
+    dplyr::select(Approach, Function, Kernel, all_of(diagnostic)) %>%
+    slice_min(.[[diagnostic]]) %>%
+    magrittr::extract(1, )
+
+  solution <- c(
+    tolower(opt_row$Function),
+    as.character(opt_row$Kernel),
+    toupper(opt_row$Approach)
+  ) %>%
+    as.character() %>%
+    set_names("func", "type", "approach")
+  
+  list(solution = solution, df = modelselect_df)
 }
 
 

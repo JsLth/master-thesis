@@ -12,27 +12,26 @@ pkgs <- c(
   "tidytext", "vctrs",
   
   # Debugging and convenience
-  "cli", "callr", "processx", "bench", "magrittr", "rlang", "retry", "R.utils",
+  "cli", "callr", "processx", "magrittr", "rlang", "retry", "R.utils",
   
   # Text semantics
   "stringr", "quanteda", "quanteda.textstats", "quanteda.textplots",
-  "quanteda.textmodels", "LSX", "rsvd",
+  "quanteda.textmodels", "LSX",
   
   # Geoprocessing
   "sf", "sp",  "stars", "starsExtra", "gstat",
   
   # Spatial statistics
-  "spdep", "spgwr", "GWmodel", "lme4", "merTools", "nortest",
+  "spdep", "GWmodel", "lme4", "merTools", "nortest",
   
   # Visualization
-  "tmap", "ggpubr", "Cairo", "patchwork", "gridExtra", "ggrastr", "classInt",
-  "RColorBrewer", "pheatmap", "ggrepel", "qqplotr",
+  "tmap", "ggpubr", "Cairo", "ggrastr", "ggrepel", "qqplotr",
   
   # LaTeX
-  "kableExtra", "stargazer", "modelsummary", "ltxsparklines",
+  "flextable", "ftExtra","modelsummary",
   
   # Parallelization
-  "furrr", "multidplyr", "progressr"
+  "furrr", "progressr"
 )
 
 if (!all(pkgs %in% names(sessionInfo()$otherPkgs))) {
@@ -42,7 +41,7 @@ if (!all(pkgs %in% names(sessionInfo()$otherPkgs))) {
     msg_failed = "Could not attach packages."
   )
   
-  suppressMessages(packages(pkgs, prompt = FALSE))
+  suppressPackageStartupMessages(packages(pkgs, prompt = FALSE))
   
   cli::cli_progress_done()
 }
